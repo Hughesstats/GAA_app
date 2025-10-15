@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaelic Football App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="counters">
+        <div class="counter-container">
+            <span class="team-name">Team 1:</span>
+            <div id="counter-team-1" class="counter">0-00</div>
+        </div>
+        <div id="counters-center" class="counters-center">
+            <div class="toggle-label-top">Coordinates:</div>
+            <label class="switch">
+                <input type="checkbox" id="toggle-coordinates" onchange="toggleCoordinates()">
+                <span class="slider round"></span>
+            </label>
+        </div>
+        <div class="counter-container">
+            <span class="team-name">Team 2:</span>
+            <div id="counter-team-2" class="counter">0-00</div>
+        </div>
+    </div>
+
+    <div id="coordinate-warning" class="fade-message"></div>
+    
+    <!-- Hamburger button to open sidebar -->
+    <button id="sidebar-toggle" class="hamburger">&#9776;</button>
+
+    <!-- Sidebar navigation menu -->
+    <div id="sidebar" class="sidebar">
+        <a href="javascript:void(0)" class="closebtn" id="close-sidebar">&times;</a>
+        <a href="#" class="sidebar-link" data-tab="home">Team Sheets</a>
+        <a href="#" class="sidebar-link" data-tab="stats">Match Log</a>
+        <a href="#" class="sidebar-link" data-tab="stats-tab">Stats</a>
+        <a href="#" class="sidebar-link" data-tab="summary">Summary</a>
+        <a href="#" class="sidebar-link" data-tab="review">Review</a>
+        
+        <!-- Dark Mode Toggle at bottom of sidebar -->
+        <div class="sidebar-footer">
+            <div class="dark-mode-toggle">
+                <span class="toggle-label">Dark Mode:</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-dark-mode" onchange="toggleDarkMode()">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay background -->
+    <div id="sidebar-overlay"></div>
+
+    <main>
+        <div id="home" class="tab-content">
+            <div class="home-card">
+                <!-- Team Toggle Section -->
+                <div class="team-toggle-section">
+                    <div class="team-toggle-container">
+                        <button id="our-team-toggle" class="team-toggle-button active" onclick="switchTeamView('our-team')">
+                            <span class="toggle-text">Our Team</span>
+                        </button>
+                        <button id="opposition-toggle" class="team-toggle-button" onclick="switchTeamView('opposition')">
+                            <span class="toggle-text">Opposition</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Our Team View -->
+                <div id="our-team-view" class="team-view active">
+                    <!-- Team Actions Subheader -->
+                    <div class="team-actions-subheader">
+                        <div class="team-actions-container">
+                            <button id="save-team-1-button" class="team-action-button save-button" onclick="saveTeamSheet(1)">
+                                <span class="button-icon">💾</span>
+                                <span class="button-text">Save Team Sheet</span>
+                            </button>
+                            <button id="upload-team-1-button" class="team-action-button upload-button" onclick="uploadTeamSheet(1)">
+                                <span class="button-icon">📁</span>
+                                <span class="button-text">Upload Team Sheet</span>
+                            </button>
+                            <input type="file" id="team-1-file-input" accept=".csv" style="display: none;" onchange="handleFileUpload(1, this)">
+                        </div>
+                    </div>
+
+                    <!-- Team Controls Section -->
+                    <div class="home-section">
+                        <div class="row team-controls-row">
+                            <button id="rename-team-1-button" onclick="openTeamEditPopup(1)">Team 1</button>
+                            <button id="customize-team-1-button" class="customize-button" onclick="openTeamCustomizePopup(1)" title="Customize team colors and pattern">
+                                <span class="customize-icon">🎨</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="home-section">
+                        <div class="home-caption">Starting 15</div>
+                        <div class="row">
+                            <button id="player-1-button" onclick="openEditPopup(1)">#1 - GK</button>
+                        </div>
+                        <div class="row">
+                            <button id="player-4-button" onclick="openEditPopup(4)">#4 - RCNB</button>
+                            <button id="player-3-button" onclick="openEditPopup(3)">#3 - FB</button>
+                            <button id="player-2-button" onclick="openEditPopup(2)">#2 - LCNB</button>
+                        </div>
+                        <div class="row">
+                            <button id="player-7-button" onclick="openEditPopup(7)">#7 - RWB</button>
+                            <button id="player-6-button" onclick="openEditPopup(6)">#6 - CTB</button>
+                            <button id="player-5-button" onclick="openEditPopup(5)">#5 - LWB</button>
+                        </div>
+                        <div class="row">
+                            <button id="player-9-button" onclick="openEditPopup(9)">#9 - MF</button>
+                            <button id="player-8-button" onclick="openEditPopup(8)">#8 - MF</button>
+                        </div>
+                        <div class="row">
+                            <button id="player-12-button" onclick="openEditPopup(12)">#12 - RWF</button>
+                            <button id="player-11-button" onclick="openEditPopup(11)">#11 - CTF</button>
+                            <button id="player-10-button" onclick="openEditPopup(10)">#10 - LWF</button>
+                        </div>
+                        <div class="row">
+                            <button id="player-15-button" onclick="openEditPopup(15)">#15 - RCNF</button>
+                            <button id="player-14-button" onclick="openEditPopup(14)">#14 - FF</button>
+                            <button id="player-13-button" onclick="openEditPopup(13)">#13 - LCNF</button>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <!-- Our Team Substitutes -->
+                    <div class="subs-toggle-container">
+                        <button id="our-subs-toggle-btn" class="subs-toggle-button" onclick="toggleSubstitutes('our-team')">
+                            <span class="toggle-icon">▶</span>
+                            <span class="toggle-text">Show Substitutes</span>
+                        </button>
+                    </div>
+
+                    <div class="subs-section" id="our-subs-section" style="display: none;">
+                        <div class="home-caption">Substitutes</div>
+                        <div class="subs-grid">
+                            <button id="player-16-button" onclick="openEditPopup(16)">#16 - SUB 1</button>
+                            <button id="player-17-button" onclick="openEditPopup(17)">#17 - SUB 2</button>
+                            <button id="player-18-button" onclick="openEditPopup(18)">#18 - SUB 3</button>
+                            <button id="player-19-button" onclick="openEditPopup(19)">#19 - SUB 4</button>
+                            <button id="player-20-button" onclick="openEditPopup(20)">#20 - SUB 5</button>
+                            <button id="player-21-button" onclick="openEditPopup(21)">#21 - SUB 6</button>
+                            <button id="player-22-button" onclick="openEditPopup(22)">#22 - SUB 7</button>
+                            <button id="player-23-button" onclick="openEditPopup(23)">#23 - SUB 8</button>
+                            <button id="player-24-button" onclick="openEditPopup(24)">#24 - SUB 9</button>
+                            <button id="player-25-button" onclick="openEditPopup(25)">#25 - SUB 10</button>
+                            <button id="player-26-button" onclick="openEditPopup(26)">#26 - SUB 11</button>
+                            <button id="player-27-button" onclick="openEditPopup(27)">#27 - SUB 12</button>
+                            <button id="player-28-button" onclick="openEditPopup(28)">#28 - SUB 13</button>
+                            <button id="player-29-button" onclick="openEditPopup(29)">#29 - SUB 14</button>
+                            <button id="player-30-button" onclick="openEditPopup(30)">#30 - SUB 15</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Opposition Team View -->
+                <div id="opposition-view" class="team-view">
+                    <!-- Team Actions Subheader -->
+                    <div class="team-actions-subheader">
+                        <div class="team-actions-container">
+                            <button id="save-team-2-button" class="team-action-button save-button" onclick="saveTeamSheet(2)">
+                                <span class="button-icon">💾</span>
+                                <span class="button-text">Save Team Sheet</span>
+                            </button>
+                            <button id="upload-team-2-button" class="team-action-button upload-button" onclick="uploadTeamSheet(2)">
+                                <span class="button-icon">📁</span>
+                                <span class="button-text">Upload Team Sheet</span>
+                            </button>
+                            <input type="file" id="team-2-file-input" accept=".csv" style="display: none;" onchange="handleFileUpload(2, this)">
+                        </div>
+                    </div>
+
+                    <!-- Team Controls Section -->
+                    <div class="home-section">
+                        <div class="row team-controls-row">
+                            <button id="rename-team-2-button" onclick="openTeamEditPopup(2)">Team 2</button>
+                            <button id="customize-team-2-button" class="customize-button" onclick="openTeamCustomizePopup(2)" title="Customize team colors and pattern">
+                                <span class="customize-icon">🎨</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="home-section">
+                        <div class="home-caption">Starting 15</div>
+                        <div class="row">
+                            <button id="opp-player-1-button" class="player-button" onclick="openEditPopup(101)">#1 - GK</button>
+                        </div>
+                        <div class="row">
+                            <button id="opp-player-4-button" class="player-button" onclick="openEditPopup(104)">#4 - RCNB</button>
+                            <button id="opp-player-3-button" class="player-button" onclick="openEditPopup(103)">#3 - FB</button>
+                            <button id="opp-player-2-button" class="player-button" onclick="openEditPopup(102)">#2 - LCNB</button>
+                        </div>
+                        <div class="row">
+                            <button id="opp-player-7-button" class="player-button" onclick="openEditPopup(107)">#7 - RWB</button>
+                            <button id="opp-player-6-button" class="player-button" onclick="openEditPopup(106)">#6 - CTB</button>
+                            <button id="opp-player-5-button" class="player-button" onclick="openEditPopup(105)">#5 - LWB</button>
+                        </div>
+                        <div class="row">
+                            <button id="opp-player-9-button" class="player-button" onclick="openEditPopup(109)">#9 - MF</button>
+                            <button id="opp-player-8-button" class="player-button" onclick="openEditPopup(108)">#8 - MF</button>
+                        </div>
+                        <div class="row">
+                            <button id="opp-player-12-button" class="player-button" onclick="openEditPopup(112)">#12 - RWF</button>
+                            <button id="opp-player-11-button" class="player-button" onclick="openEditPopup(111)">#11 - CTF</button>
+                            <button id="opp-player-10-button" class="player-button" onclick="openEditPopup(110)">#10 - LWF</button>
+                        </div>
+                        <div class="row">
+                            <button id="opp-player-15-button" class="player-button" onclick="openEditPopup(115)">#15 - RCNF</button>
+                            <button id="opp-player-14-button" class="player-button" onclick="openEditPopup(114)">#14 - FF</button>
+                            <button id="opp-player-13-button" class="player-button" onclick="openEditPopup(113)">#13 - LCNF</button>
+                        </div>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <!-- Opposition Substitutes -->
+                    <div class="subs-toggle-container">
+                        <button id="opp-subs-toggle-btn" class="subs-toggle-button" onclick="toggleSubstitutes('opposition')">
+                            <span class="toggle-icon">▶</span>
+                            <span class="toggle-text">Show Substitutes</span>
+                        </button>
+                    </div>
+
+                    <div class="subs-section" id="opp-subs-section" style="display: none;">
+                        <div class="home-caption">Substitutes</div>
+                        <div class="subs-grid">
+                            <button id="opp-player-16-button" class="player-button" onclick="openEditPopup(116)">#16 - SUB 1</button>
+                            <button id="opp-player-17-button" class="player-button" onclick="openEditPopup(117)">#17 - SUB 2</button>
+                            <button id="opp-player-18-button" class="player-button" onclick="openEditPopup(118)">#18 - SUB 3</button>
+                            <button id="opp-player-19-button" class="player-button" onclick="openEditPopup(119)">#19 - SUB 4</button>
+                            <button id="opp-player-20-button" class="player-button" onclick="openEditPopup(120)">#20 - SUB 5</button>
+                            <button id="opp-player-21-button" class="player-button" onclick="openEditPopup(121)">#21 - SUB 6</button>
+                            <button id="opp-player-22-button" class="player-button" onclick="openEditPopup(122)">#22 - SUB 7</button>
+                            <button id="opp-player-23-button" class="player-button" onclick="openEditPopup(123)">#23 - SUB 8</button>
+                            <button id="opp-player-24-button" class="player-button" onclick="openEditPopup(124)">#24 - SUB 9</button>
+                            <button id="opp-player-25-button" class="player-button" onclick="openEditPopup(125)">#25 - SUB 10</button>
+                            <button id="opp-player-26-button" class="player-button" onclick="openEditPopup(126)">#26 - SUB 11</button>
+                            <button id="opp-player-27-button" class="player-button" onclick="openEditPopup(127)">#27 - SUB 12</button>
+                            <button id="opp-player-28-button" class="player-button" onclick="openEditPopup(128)">#28 - SUB 13</button>
+                            <button id="opp-player-29-button" class="player-button" onclick="openEditPopup(129)">#29 - SUB 14</button>
+                            <button id="opp-player-30-button" class="player-button" onclick="openEditPopup(130)">#30 - SUB 15</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div id="player-edit-popup" class="popup" style="display:none;">
+            <div class="popup-content">
+                <label for="player-number-input">Number:</label>
+                <input type="number" id="player-number-input" min="1" max="99" />
+
+                <label for="player-name-input">Name:</label>
+                <input type="text" id="player-name-input" />
+
+                <button onclick="confirmPlayerEdit()">Confirm</button>
+                <button onclick="PopupAnimator.hidePopup(document.getElementById('player-edit-popup'), 'standard')">Cancel</button>
+            </div>
+        </div>
+
+        <div id="team-edit-popup" class="popup" style="display:none;">
+            <div class="popup-content">
+                <label for="team-name-input">Team Name:</label>
+                <input type="text" id="team-name-input" />
+
+                <button onclick="confirmTeamEdit()">Confirm</button>
+                <button onclick="PopupAnimator.hidePopup(document.getElementById('team-edit-popup'), 'standard')">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Team Customization Popup -->
+        <div id="team-customize-popup" class="popup" style="display:none;">
+            <div class="popup-content customize-popup-content">
+                <h3 class="customize-popup-title">Customize Team</h3>
+                
+                <!-- Pattern Selection -->
+                <div class="customize-section">
+                    <h4 class="customize-section-title">Pattern</h4>
+                    <div class="pattern-grid">
+                        <div class="pattern-option" data-pattern="solid">
+                            <div class="pattern-preview pattern-solid"></div>
+                            <span class="pattern-label">Classic</span>
+                        </div>
+                        <div class="pattern-option" data-pattern="diagonal">
+                            <div class="pattern-preview pattern-diagonal"></div>
+                            <span class="pattern-label">Diagonal</span>
+                        </div>
+                        <div class="pattern-option" data-pattern="checkered">
+                            <div class="pattern-preview pattern-checkered"></div>
+                            <span class="pattern-label">Checkered</span>
+                        </div>
+                        <div class="pattern-option" data-pattern="vertical">
+                            <div class="pattern-preview pattern-vertical"></div>
+                            <span class="pattern-label">Vertical</span>
+                        </div>
+                        <div class="pattern-option" data-pattern="horizontal">
+                            <div class="pattern-preview pattern-horizontal"></div>
+                            <span class="pattern-label">Horizontal</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Color Selection -->
+                <div class="customize-section">
+                    <h4 class="customize-section-title">Primary Color</h4>
+                    <div class="color-picker-container">
+                        <input type="color" id="primary-color-picker" value="#2563eb">
+                        <div class="color-presets">
+                            <div class="color-preset" data-color="#ef4444" style="background: #ef4444;" title="Red"></div>
+                            <div class="color-preset" data-color="#f97316" style="background: #f97316;" title="Orange"></div>
+                            <div class="color-preset" data-color="#eab308" style="background: #eab308;" title="Yellow"></div>
+                            <div class="color-preset" data-color="#22c55e" style="background: #22c55e;" title="Green"></div>
+                            <div class="color-preset" data-color="#3b82f6" style="background: #3b82f6;" title="Blue"></div>
+                            <div class="color-preset" data-color="#8b5cf6" style="background: #8b5cf6;" title="Purple"></div>
+                            <div class="color-preset" data-color="#ec4899" style="background: #ec4899;" title="Pink"></div>
+                            <div class="color-preset" data-color="#6b7280" style="background: #6b7280;" title="Gray"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="customize-section">
+                    <h4 class="customize-section-title">Secondary Color</h4>
+                    <div class="color-picker-container">
+                        <input type="color" id="secondary-color-picker" value="#1d4ed8">
+                        <button id="secondary-none-btn" class="secondary-none-button">None</button>
+                        <div class="color-presets">
+                            <div class="color-preset" data-color="#ef4444" style="background: #ef4444;" title="Red"></div>
+                            <div class="color-preset" data-color="#f97316" style="background: #f97316;" title="Orange"></div>
+                            <div class="color-preset" data-color="#eab308" style="background: #eab308;" title="Yellow"></div>
+                            <div class="color-preset" data-color="#22c55e" style="background: #22c55e;" title="Green"></div>
+                            <div class="color-preset" data-color="#3b82f6" style="background: #3b82f6;" title="Blue"></div>
+                            <div class="color-preset" data-color="#8b5cf6" style="background: #8b5cf6;" title="Purple"></div>
+                            <div class="color-preset" data-color="#ec4899" style="background: #ec4899;" title="Pink"></div>
+                            <div class="color-preset" data-color="#6b7280" style="background: #6b7280;" title="Gray"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="customize-section">
+                    <h4 class="customize-section-title">Preview</h4>
+                    <div class="preview-container">
+                        <div id="customize-preview" class="customize-preview-button">
+                            Preview
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="popup-buttons">
+                    <button id="confirm-customize" onclick="confirmTeamCustomization()">Confirm</button>
+                    <button onclick="closeTeamCustomizePopup()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+
+            <!-- Match Log Tab Content -->
+        <div id="stats" class="tab-content">
+            <div class="match-log-card">
+                <!-- Team Toggle Section -->
+                <div class="team-toggle-section">
+                    <div class="team-toggle-container">
+                        <button id="match-log-team-1-toggle" class="team-toggle-button active" onclick="switchMatchLogTeam(1)">
+                            <span class="toggle-text" id="match-log-team-1-name">Team 1</span>
+                        </button>
+                        <button id="match-log-team-2-toggle" class="team-toggle-button" onclick="switchMatchLogTeam(2)">
+                            <span class="toggle-text" id="match-log-team-2-name">Team 2</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Action Columns -->
+                <div id="match-log-action-buttons" class="screen active">
+                    <div class="action-columns">
+                        <!-- Attacking Actions -->
+                        <div class="action-column">
+                            <h3 class="column-title">Attacking</h3>
+                            <div class="action-button-container">
+                                <button class="action-button" data-action="Point - Score" onclick="selectMatchLogAction('Point - Score')">Point - Score</button>
+                                <button class="action-button" data-action="2-Point - Score" onclick="selectMatchLogAction('2-Point - Score')">2-Point - Score</button>
+                                <button class="action-button" data-action="Goal - Score" onclick="selectMatchLogAction('Goal - Score')">Goal - Score</button>
+                                <button class="action-button" data-action="Point - Miss" onclick="selectMatchLogAction('Point - Miss')">Point - Miss</button>
+                                <button class="action-button" data-action="Goal - Miss" onclick="selectMatchLogAction('Goal - Miss')">Goal - Miss</button>
+                                <button class="action-button" data-action="45 Entry" onclick="selectMatchLogAction('45 Entry')">45 Entry</button>
+                                <button class="action-button" data-action="Source of Shot" onclick="selectMatchLogAction('Source of Shot')">Source of Shot</button>
+                            </div>
+                        </div>
+                        <!-- Possession Actions -->
+                        <div class="action-column">
+                            <h3 class="column-title">Possession</h3>
+                            <div class="action-button-container">
+                                <button class="action-button" data-action="Our Kickout" onclick="selectMatchLogAction('Our Kickout')">Our Kickout</button>
+                                <button class="action-button" data-action="Free Won" onclick="selectMatchLogAction('Free Won')">Free Won</button>
+                                <button class="action-button" data-action="Ball Lost (Forced)" onclick="selectMatchLogAction('Ball Lost (Forced)')">Ball Lost (Forced)</button>
+                                <button class="action-button" data-action="Ball Lost (Unforced)" onclick="selectMatchLogAction('Ball Lost (Unforced)')">Ball Lost (Unforced)</button>
+                                <button class="action-button" data-action="Handpass" onclick="selectMatchLogAction('Handpass')">Handpass</button>
+                                <button class="action-button" data-action="Kickpass" onclick="selectMatchLogAction('Kickpass')">Kickpass</button>
+                                <button class="action-button" data-action="Carry" onclick="selectMatchLogAction('Carry')">Carry</button>
+                            </div>
+                        </div>
+                        <!-- Defence Actions -->
+                        <div class="action-column">
+                            <h3 class="column-title">Defence</h3>
+                            <div class="action-button-container">
+                                <button class="action-button" data-action="Ball Won (Forced)" onclick="selectMatchLogAction('Ball Won (Forced)')">Ball Won (Forced)</button>
+                                <button class="action-button" data-action="Ball Won (Unforced)" onclick="selectMatchLogAction('Ball Won (Unforced)')">Ball Won (Unforced)</button>
+                                <button class="action-button" data-action="Foul Committed" onclick="selectMatchLogAction('Foul Committed')">Foul Committed</button>
+                                <button class="action-button" data-action="Pressured Shot" onclick="selectMatchLogAction('Pressured Shot')">Pressured Shot</button>
+                                <button class="action-button" data-action="Opp. 45 Entry" onclick="selectMatchLogAction('Opp. 45 Entry')">Opp. 45 Entry</button>
+                                <button class="action-button" data-action="Card Received" onclick="selectMatchLogAction('Card Received')">Card Received</button>
+                                <button class="action-button" data-action="Other" onclick="selectMatchLogAction('Other')">Other</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Player Selection Screen -->
+            <div id="player-buttons" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Select Player</h3>
+                <div class="player-button-container">
+                    <button class="player-button" onclick="selectPlayer(1)" aria-label="Select Player 1">#1 - GK</button>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(4)" aria-label="Select Player 4">#4 - RCNB</button>
+                    <button class="player-button" onclick="selectPlayer(3)" aria-label="Select Player 3">#3 - FB</button>
+                    <button class="player-button" onclick="selectPlayer(2)" aria-label="Select Player 2">#2 - LCNB</button>
+                    </div>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(7)" aria-label="Select Player 7">#7 - RWB</button>
+                    <button class="player-button" onclick="selectPlayer(6)" aria-label="Select Player 6">#6 - CTB</button>
+                    <button class="player-button" onclick="selectPlayer(5)" aria-label="Select Player 5">#5 - LWB</button>
+                    </div>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(9)" aria-label="Select Player 9">#9 - MF</button>
+                    <button class="player-button" onclick="selectPlayer(8)" aria-label="Select Player 8">#8 - MF</button>
+                    </div>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(12)" aria-label="Select Player 12">#12 - RWF</button>
+                    <button class="player-button" onclick="selectPlayer(11)" aria-label="Select Player 11">#11 - CTF</button>
+                    <button class="player-button" onclick="selectPlayer(10)" aria-label="Select Player 10">#10 - LWF</button>
+                    </div>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(15)" aria-label="Select Player 15">#15 - RCNF</button>
+                    <button class="player-button" onclick="selectPlayer(14)" aria-label="Select Player 14">#14 - FF</button>
+                    <button class="player-button" onclick="selectPlayer(13)" aria-label="Select Player 13">#13 - LCNF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Team 2 Player Selection Screen -->
+            <div id="player-buttons-team2" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Select Team 2 Player</h3>
+                <div class="player-button-container">
+                    <button class="player-button" onclick="selectPlayer(101)" aria-label="Select Player 101">#101 - GK</button>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(104)" aria-label="Select Player 104">#104 - RCNB</button>
+                    <button class="player-button" onclick="selectPlayer(103)" aria-label="Select Player 103">#103 - FB</button>
+                    <button class="player-button" onclick="selectPlayer(102)" aria-label="Select Player 102">#102 - LCNB</button>
+                    </div>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(107)" aria-label="Select Player 107">#107 - RWB</button>
+                    <button class="player-button" onclick="selectPlayer(106)" aria-label="Select Player 106">#106 - CTB</button>
+                    <button class="player-button" onclick="selectPlayer(105)" aria-label="Select Player 105">#105 - LWB</button>
+                    </div>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(109)" aria-label="Select Player 109">#109 - MF</button>
+                    <button class="player-button" onclick="selectPlayer(108)" aria-label="Select Player 108">#108 - MF</button>
+                    </div>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(112)" aria-label="Select Player 112">#112 - RWF</button>
+                    <button class="player-button" onclick="selectPlayer(111)" aria-label="Select Player 111">#111 - CTF</button>
+                    <button class="player-button" onclick="selectPlayer(110)" aria-label="Select Player 110">#110 - LWF</button>
+                    </div>
+                    <div class="player-row">
+                    <button class="player-button" onclick="selectPlayer(115)" aria-label="Select Player 115">#115 - RCNF</button>
+                    <button class="player-button" onclick="selectPlayer(114)" aria-label="Select Player 114">#114 - FF</button>
+                    <button class="player-button" onclick="selectPlayer(113)" aria-label="Select Player 113">#113 - LCNF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Second Player Selection Screen -->
+            <div id="player-buttons-second" class="screen">
+                <button class="return-button" onclick="returnToFirstPlayerScreen()">Return to First Player</button>
+                <h3>Select Receiver</h3>
+                <div class="player-button-container">
+                    <button class="player-button" onclick="selectSecondPlayer(1)" aria-label="Select Receiver 1">#1 - GK</button>
+                    <div class="player-row">
+                        <button class="player-button" onclick="selectSecondPlayer(4)" aria-label="Select Receiver 4">#4 - RCNB</button>
+                        <button class="player-button" onclick="selectSecondPlayer(3)" aria-label="Select Receiver 3">#3 - FB</button>
+                        <button class="player-button" onclick="selectSecondPlayer(2)" aria-label="Select Receiver 2">#2 - LCNB</button>
+                    </div>
+                    <div class="player-row">
+                        <button class="player-button" onclick="selectSecondPlayer(7)" aria-label="Select Receiver 7">#7 - RWB</button>
+                        <button class="player-button" onclick="selectSecondPlayer(6)" aria-label="Select Receiver 6">#6 - CTB</button>
+                        <button class="player-button" onclick="selectSecondPlayer(5)" aria-label="Select Receiver 5">#5 - LWB</button>
+                    </div>
+                    <div class="player-row">
+                        <button class="player-button" onclick="selectSecondPlayer(9)" aria-label="Select Receiver 9">#9 - MF</button>
+                        <button class="player-button" onclick="selectSecondPlayer(8)" aria-label="Select Receiver 8">#8 - MF</button>
+                    </div>
+                    <div class="player-row">
+                        <button class="player-button" onclick="selectSecondPlayer(12)" aria-label="Select Receiver 12">#12 - RWF</button>
+                        <button class="player-button" onclick="selectSecondPlayer(11)" aria-label="Select Receiver 11">#11 - CTF</button>
+                        <button class="player-button" onclick="selectSecondPlayer(10)" aria-label="Select Receiver 10">#10 - LWF</button>
+                    </div>
+                    <div class="player-row">
+                        <button class="player-button" onclick="selectSecondPlayer(15)" aria-label="Select Receiver 15">#15 - RCNF</button>
+                        <button class="player-button" onclick="selectSecondPlayer(14)" aria-label="Select Receiver 14">#13 - FF</button>
+                        <button class="player-button" onclick="selectSecondPlayer(13)" aria-label="Select Receiver 13">#13 - LCNF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Team 2 Second Player Selection Screen -->
+            <div id="player-buttons-second-team2" class="screen">
+                <button class="return-button" onclick="returnToFirstPlayerScreen()">Return to First Player</button>
+                <h3>Select Team 2 Receiver</h3>
+                <div class="player-button-container">
+                    <button id="opp-player-1-button" class="player-button" onclick="selectSecondPlayer(101)" aria-label="Select Player 101">#101 - GK</button>
+                    <div class="player-row">
+                    <button id="opp-player-4-button" class="player-button" onclick="selectSecondPlayer(104)" aria-label="Select Player 104">#104 - RCNB</button>
+                    <button id="opp-player-3-button" class="player-button" onclick="selectSecondPlayer(103)" aria-label="Select Player 103">#103 - FB</button>
+                    <button id="opp-player-2-button" class="player-button" onclick="selectSecondPlayer(102)" aria-label="Select Player 102">#102 - LCNB</button>
+                    </div>
+                    <div class="player-row">
+                    <button id="opp-player-7-button" class="player-button" onclick="selectSecondPlayer(107)" aria-label="Select Player 107">#107 - RWB</button>
+                    <button id="opp-player-6-button" class="player-button" onclick="selectSecondPlayer(106)" aria-label="Select Player 106">#106 - CTB</button>
+                    <button id="opp-player-5-button" class="player-button" onclick="selectSecondPlayer(105)" aria-label="Select Player 105">#105 - LWB</button>
+                    </div>
+                    <div class="player-row">
+                    <button id="opp-player-9-button" class="player-button" onclick="selectSecondPlayer(109)" aria-label="Select Player 109">#109 - MF</button>
+                    <button id="opp-player-8-button" class="player-button" onclick="selectSecondPlayer(108)" aria-label="Select Player 108">#108 - MF</button>
+                    </div>
+                    <div class="player-row">
+                    <button id="opp-player-12-button" class="player-button" onclick="selectSecondPlayer(112)" aria-label="Select Player 112">#112 - RWF</button>
+                    <button id="opp-player-11-button" class="player-button" onclick="selectSecondPlayer(111)" aria-label="Select Player 111">#111 - CTF</button>
+                    <button id="opp-player-10-button" class="player-button" onclick="selectSecondPlayer(110)" aria-label="Select Player 110">#110 - LWF</button>
+                    </div>
+                    <div class="player-row">
+                    <button id="opp-player-15-button" class="player-button" onclick="selectSecondPlayer(115)" aria-label="Select Player 115">#115 - RCNF</button>
+                    <button id="opp-player-14-button" class="player-button" onclick="selectSecondPlayer(114)" aria-label="Select Player 114">#114 - FF</button>
+                    <button id="opp-player-13-button" class="player-button" onclick="selectSecondPlayer(113)" aria-label="Select Player 113">#113 - LCNF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Screens -->
+            <div id="mode-point-score" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Point - Score</h3>
+                <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
+                <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
+                <button class="mode-button" onclick="selectMode('Open Play H')">Open Play H</button>
+                <button class="mode-button" onclick="selectMode('Freekick Foot')">Freekick Foot</button>
+                <button class="mode-button" onclick="selectMode('Freekick Ground')">Freekick Ground</button>
+                <button class="mode-button" onclick="selectMode('45')">45</button>
+                <button class="mode-button" onclick="selectMode('Off. Mark')">Off. Mark</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for 2-Point - Score -->
+            <div id="mode-2-point-score" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for 2-Point - Score</h3>
+                <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
+                <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
+                <button class="mode-button" onclick="selectMode('Freekick Foot')">Freekick Foot</button>
+                <button class="mode-button" onclick="selectMode('Freekick Ground')">Freekick Ground</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <div id="mode-goal-score" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Goal - Score</h3>
+                <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
+                <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
+                <button class="mode-button" onclick="selectMode('Open Play H')">Open Play H</button>
+                <button class="mode-button" onclick="selectMode('Penalty')">Penalty</button>
+                <button class="mode-button" onclick="selectMode('Freekick')">Freekick</button>
+                <button class="mode-button" onclick="selectMode('Own Goal')">Own Goal</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <div id="mode-goal-miss" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Goal - Miss</h3>
+                <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
+                <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
+                <button class="mode-button" onclick="selectMode('Open Play H')">Open Play H</button>
+                <button class="mode-button" onclick="selectMode('Penalty')">Penalty</button>
+                <button class="mode-button" onclick="selectMode('Freekick')">Freekick</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <div id="mode-point-miss" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Point - Miss</h3>
+                <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
+                <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
+                <button class="mode-button" onclick="selectMode('Open Play H')">Open Play H</button>
+                <button class="mode-button" onclick="selectMode('Freekick Foot')">Freekick Foot</button>
+                <button class="mode-button" onclick="selectMode('Freekick Ground')">Freekick Ground</button>
+                <button class="mode-button" onclick="selectMode('45')">45</button>
+                <button class="mode-button" onclick="selectMode('Off. Mark')">Off. Mark</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <div id="definition-point-miss" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Point - Miss</h3>
+                <button class="definition-button" onclick="selectDefinition('Wide')">Wide</button>
+                <button class="definition-button" onclick="selectDefinition('Short')">Short</button>
+                <button class="definition-button" onclick="selectDefinition('Block')">Block</button>
+                <button class="definition-button" onclick="selectDefinition('Post')">Post</button>
+                <button class="definition-button" onclick="selectDefinition('Out For 45')">Out For 45</button>
+                <button class="definition-button" onclick="selectDefinition('Other')">Other</button>
+            </div>
+
+            <!-- Definition Screen for Goal - Miss -->
+            <div id="definition-goal-miss" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Goal - Miss</h3>
+                <button class="definition-button" onclick="selectDefinition('Wide')">Wide</button>
+                <button class="definition-button" onclick="selectDefinition('GK Save')">GK Save</button>
+                <button class="definition-button" onclick="selectDefinition('Block')">Block</button>
+                <button class="definition-button" onclick="selectDefinition('Post')">Post</button>
+                <button class="definition-button" onclick="selectDefinition('Out For 45')">Out For 45</button>
+                <button class="definition-button" onclick="selectDefinition('Over (Point)')">Over (Point)</button>
+                <button class="definition-button" onclick="selectDefinition('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for 45 Entry -->
+            <div id="mode-45-entry" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for 45 Entry</h3>
+                <button class="mode-button" onclick="selectMode('Kickpass (Fast)')">Kickpass (Fast)</button>
+                <button class="mode-button" onclick="selectMode('Kickpass (Slow)')">Kickpass (Slow)</button>
+                <button class="mode-button" onclick="selectMode('Handpass (Fast)')">Handpass (Fast)</button>
+                <button class="mode-button" onclick="selectMode('Handpass (Slow)')">Handpass (Slow)</button>
+                <button class="mode-button" onclick="selectMode('Carry (Fast)')">Carry (Fast)</button>
+                <button class="mode-button" onclick="selectMode('Carry (Slow)')">Carry (Slow)</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for Source of Shot -->
+            <div id="mode-source-of-shot" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Source of Shot</h3>
+                <button class="mode-button" onclick="selectMode('Own Kickout')">Own Kickout</button>
+                <button class="mode-button" onclick="selectMode('Opp. Kickout')">Opp. Kickout</button>
+                <button class="mode-button" onclick="selectMode('Turnover (Forced)')">Turnover (Forced)</button>
+                <button class="mode-button" onclick="selectMode('Turnover (Unforced)')">Turnover (Unforced)</button>
+                <button class="mode-button" onclick="selectMode('Shot Dropped Short')">Shot Dropped Short</button>
+                <button class="mode-button" onclick="selectMode('Slow Attack')">Slow Attack</button>
+                <button class="mode-button" onclick="selectMode('Throw Up')">Throw Up</button>
+            </div>
+
+            <!-- Mode Screen for Free Won -->
+            <div id="mode-free-won" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Free Won</h3>
+                <button class="mode-button" onclick="selectMode('Tackle')">Tackle</button>
+                <button class="mode-button" onclick="selectMode('Pulling')">Pulling</button>
+                <button class="mode-button" onclick="selectMode('Pushing')">Pushing</button>
+                <button class="mode-button" onclick="selectMode('Charging')">Charging</button>
+                <button class="mode-button" onclick="selectMode('Technical Foul')">Technical Foul</button>
+                <button class="mode-button" onclick="selectMode('Breach')">Breach</button>
+                <button class="mode-button" onclick="selectMode('Off-Ball Foul')">Off-Ball Foul</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Definition Screen for Free Won -->
+            <div id="definition-free-won" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Free Won</h3>
+                <button class="definition-button" onclick="selectDefinition('No Card')">No Card</button>
+                <button class="definition-button" onclick="selectDefinition('Opp. Yellow')">Opp. Yellow</button>
+                <button class="definition-button" onclick="selectDefinition('Opp. Black')">Opp. Black</button>
+                <button class="definition-button" onclick="selectDefinition('Opp. Red')">Opp. Red</button>
+            </div>
+
+            <!-- Definition Screen for Ball - Won -->
+            <div id="definition-ball-won" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Ball - Won</h3>
+                <button class="definition-button" onclick="selectDefinition('Tackle')">Tackle</button>
+                <button class="definition-button" onclick="selectDefinition('Group Tackle')">Group Tackle</button>
+                <button class="definition-button" onclick="selectDefinition('Handpass Int.')">Handpass Int.</button>
+                <button class="definition-button" onclick="selectDefinition('Kickpass Int.')">Kickpass Int.</button>
+                <button class="definition-button" onclick="selectDefinition('Sideline')">Sideline</button>
+                <button class="definition-button" onclick="selectDefinition('Break')">Break</button>
+            </div>
+
+            <!-- Mode Screen for Ball - Won -->
+            <div id="mode-ball-won" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Ball Won (Forced)</h3>
+                <button class="mode-button" onclick="selectMode('Individual Tackle')">Individual Tackle</button>
+                <button class="mode-button" onclick="selectMode('Group Tackle')">Group Tackle</button>
+                <button class="mode-button" onclick="selectMode('Block Down')">Block Down</button>
+                <button class="mode-button" onclick="selectMode('Kickpass Intercept')">Kickpass Intercept</button>
+                <button class="mode-button" onclick="selectMode('Handpass Intercept')">Handpass Intercept</button>
+                <button class="mode-button" onclick="selectMode('Sideline/Endline')">Sideline/Endline</button>
+                <button class="mode-button" onclick="selectMode('Won 50/50')">Won 50/50</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for Ball Won (Unforced) -->
+            <div id="mode-ball-won-unforced" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Ball Won (Unforced)</h3>
+                <button class="mode-button" onclick="selectMode('Kickpass Intercepted')">Kickpass Intercepted</button>
+                <button class="mode-button" onclick="selectMode('Handpass Intercepted')">Handpass Intercepted</button>
+                <button class="mode-button" onclick="selectMode('First Touch')">First Touch</button>
+                <button class="mode-button" onclick="selectMode('Sideline/Endline')">Sideline/Endline</button>
+                <button class="mode-button" onclick="selectMode('Breach')">Breach</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Definition Screen for Ball - Lost -->
+            <div id="definition-ball-lost" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Ball - Lost</h3>
+                <button class="definition-button" onclick="selectDefinition('Tackle')">Tackle</button>
+                <button class="definition-button" onclick="selectDefinition('Handling Error')">Handling Error</button>
+                <button class="definition-button" onclick="selectDefinition('Group Tackle')">Group Tackle</button>
+                <button class="definition-button" onclick="selectDefinition('Handpass Int.')">Handpass Int.</button>
+                <button class="definition-button" onclick="selectDefinition('Kickpass Int.')">Kickpass Int.</button>
+                <button class="definition-button" onclick="selectDefinition('Sideline')">Sideline</button>
+                <button class="definition-button" onclick="selectDefinition('Break')">Break</button>
+            </div>
+
+            <!-- Mode Screen for Ball - Lost -->
+            <div id="mode-ball-lost" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Ball Lost (Forced)</h3>
+                <button class="mode-button" onclick="selectMode('Individual Tackle')">Individual Tackle</button>
+                <button class="mode-button" onclick="selectMode('Group Tackle')">Group Tackle</button>
+                <button class="mode-button" onclick="selectMode('Block Down')">Block Down</button>
+                <button class="mode-button" onclick="selectMode('Kickpass Intercept')">Kickpass Intercept</button>
+                <button class="mode-button" onclick="selectMode('Handpass Intercept')">Handpass Intercept</button>
+                <button class="mode-button" onclick="selectMode('Sideline/Endline')">Sideline/Endline</button>
+                <button class="mode-button" onclick="selectMode('Lost 50/50')">Lost 50/50</button>
+            </div>
+
+            <!-- Mode Screen for Ball Lost (Unforced) -->
+            <div id="mode-ball-lost-unforced" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Ball Lost (Unforced)</h3>
+                <button class="mode-button" onclick="selectMode('Kickpass Intercepted')">Kickpass Intercepted</button>
+                <button class="mode-button" onclick="selectMode('Handpass Intercepted')">Handpass Intercepted</button>
+                <button class="mode-button" onclick="selectMode('First Touch')">First Touch</button>
+                <button class="mode-button" onclick="selectMode('Sideline/Endline')">Sideline/Endline</button>
+                <button class="mode-button" onclick="selectMode('Breach')">Breach</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for Foul -->
+            <div id="mode-foul" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Foul Committed</h3>
+                <button class="mode-button" onclick="selectMode('Physical')">Physical</button>
+                <button class="mode-button" onclick="selectMode('Technical')">Technical</button>
+            </div>
+
+            <!-- Screen 2 for Physical Fouls -->
+            <div id="foul-physical-screen2" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Physical Fouls</h3>
+                <button class="mode-button" onclick="selectDefinition('Tackle')">Tackle</button>
+                <button class="mode-button" onclick="selectDefinition('Pulling')">Pulling</button>
+                <button class="mode-button" onclick="selectDefinition('Pushing')">Pushing</button>
+                <button class="mode-button" onclick="selectDefinition('Charging')">Charging</button>
+                <button class="mode-button" onclick="selectDefinition('Off-Ball Foul')">Off-Ball Foul</button>
+                <button class="mode-button" onclick="selectDefinition('Other')">Other</button>
+            </div>
+
+            <!-- Screen 2 for Technical Fouls -->
+            <div id="foul-technical-screen2" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Technical Fouls</h3>
+                <button class="mode-button" onclick="selectDefinition('Overcarry')">Overcarry</button>
+                <button class="mode-button" onclick="selectDefinition('Double Hop')">Double Hop</button>
+                <button class="mode-button" onclick="selectDefinition('Illegal Handpass')">Illegal Handpass</button>
+                <button class="mode-button" onclick="selectDefinition('Touch on Ground')">Touch on Ground</button>
+                <button class="mode-button" onclick="selectDefinition('Offensive Breach')">Offensive Breach</button>
+                <button class="mode-button" onclick="selectDefinition('Defensive Breach')">Defensive Breach</button>
+                <button class="mode-button" onclick="selectDefinition('Square Ball')">Square Ball</button>
+                <button class="mode-button" onclick="selectDefinition('Other')">Other</button>
+            </div>
+
+            <!-- Definition Screen for Foul -->
+            <div id="definition-foul" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Foul</h3>
+                <button class="definition-button" onclick="selectDefinition('No Card')">No Card</button>
+                <button class="definition-button" onclick="selectDefinition('Yellow Card')">Yellow Card</button>
+                <button class="definition-button" onclick="selectDefinition('Black Card')">Black Card</button>
+                <button class="definition-button" onclick="selectDefinition('Red Card')">Red Card</button>
+            </div>
+
+            <!-- Mode Screen for Pressured Shot -->
+            <div id="mode-pressured-shot" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Pressured Shot</h3>
+                <button class="mode-button" onclick="selectMode('Uncontested')">Uncontested</button>
+                <button class="mode-button" onclick="selectMode('Lightly Pressured')">Lightly Pressured</button>
+                <button class="mode-button" onclick="selectMode('Half Pressured / Rushed')">Half Pressured / Rushed</button>
+                <button class="mode-button" onclick="selectMode('Touched / Deflected')">Touched / Deflected</button>
+                <button class="mode-button" onclick="selectMode('Full Block')">Full Block</button>
+            </div>
+
+            <!-- Mode Screen for Card Received -->
+            <div id="mode-card-received" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Card Received</h3>
+                <button class="mode-button" onclick="selectMode('Yellow Card')">Yellow Card</button>
+                <button class="mode-button" onclick="selectMode('Black Card')">Black Card</button>
+                <button class="mode-button" onclick="selectMode('Red Card (Direct)')">Red Card (Direct)</button>
+                <button class="mode-button" onclick="selectMode('Red Card (Y+Y/Y+B)')">Red Card (Y+Y/Y+B)</button>
+            </div>
+
+            <!-- Screen 2 for Card Received -->
+            <div id="card-received-screen2" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Card Received</h3>
+                <button class="mode-button" onclick="selectMode('Rough Tackle')">Rough Tackle</button>
+                <button class="mode-button" onclick="selectMode('Persistent Fouling')">Persistent Fouling</button>
+                <button class="mode-button" onclick="selectMode('Dissent')">Dissent</button>
+                <button class="mode-button" onclick="selectMode('Cynical Foul')">Cynical Foul</button>
+                <button class="mode-button" onclick="selectMode('Violent Conduct')">Violent Conduct</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for Our Kickout -->
+            <div id="mode-our-kickout" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Our Kickout</h3>
+                <div class="mode-columns">
+                    <div class="mode-column">
+                        <h4>Kickout Won</h4>
+                        <button class="mode-button" onclick="selectMode('Won Clean')">Won Clean</button>
+                        <button class="mode-button" onclick="selectMode('Won Break')">Won Break</button>
+                        <button class="mode-button" onclick="selectMode('Won Sideline')">Won Sideline</button>
+                        <button class="mode-button" onclick="selectMode('Won Foul')">Won Foul</button>
+                    </div>
+                    <div class="mode-column">
+                        <h4>Kickout Lost</h4>
+                        <button class="mode-button" onclick="selectMode('Lost Clean')">Lost Clean</button>
+                        <button class="mode-button" onclick="selectMode('Lost Break')">Lost Break</button>
+                        <button class="mode-button" onclick="selectMode('Lost Sideline')">Lost Sideline</button>
+                        <button class="mode-button" onclick="selectMode('Lost Foul')">Lost Foul</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Definition Screen for Our Kickout -->
+            <div id="definition-our-kickout" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Our Kickout</h3>
+                <button class="definition-button" onclick="selectDefinition('Contested')">Contested</button>
+                <button class="definition-button" onclick="selectDefinition('Uncontested')">Uncontested</button>
+            </div>
+
+            <!-- Mode Screen for Opp. Kickout -->
+            <div id="mode-opp-kickout" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Opp. Kickout</h3>
+                <div class="mode-columns">
+                    <div class="mode-column">
+                        <h4>Kickout Won</h4>
+                        <button class="mode-button" onclick="selectMode('Won Clean')">Won Clean</button>
+                        <button class="mode-button" onclick="selectMode('Won Break')">Won Break</button>
+                        <button class="mode-button" onclick="selectMode('Won Sideline')">Won Sideline</button>
+                        <button class="mode-button" onclick="selectMode('Won Foul')">Won Foul</button>
+                    </div>
+                    <div class="mode-column">
+                        <h4>Kickout Lost</h4>
+                        <button class="mode-button" onclick="selectMode('Lost Clean')">Lost Clean</button>
+                        <button class="mode-button" onclick="selectMode('Lost Break')">Lost Break</button>
+                        <button class="mode-button" onclick="selectMode('Lost Sideline')">Lost Sideline</button>
+                        <button class="mode-button" onclick="selectMode('Lost Foul')">Lost Foul</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Definition Screen for Opp. Kickout -->
+            <div id="definition-opp-kickout" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Opp. Kickout</h3>
+                <button class="definition-button" onclick="selectDefinition('Contested')">Contested</button>
+                <button class="definition-button" onclick="selectDefinition('Uncontested')">Uncontested</button>
+            </div>
+
+            <!-- Mode Screen for Kickout - Against -->
+            <div id="mode-kickout-against" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Kickout - Against</h3>
+                <div class="mode-columns">
+                    <div class="mode-column">
+                        <h4>Kickout Won</h4>
+                        <button class="mode-button" onclick="selectMode('Won Clean')">Won Clean</button>
+                        <button class="mode-button" onclick="selectMode('Won Break')">Won Break</button>
+                        <button class="mode-button" onclick="selectMode('Won Sideline')">Won Sideline</button>
+                        <button class="mode-button" onclick="selectMode('Won Foul')">Won Foul</button>
+                    </div>
+                    <div class="mode-column">
+                        <h4>Kickout Lost</h4>
+                        <button class="mode-button" onclick="selectMode('Lost Clean')">Lost Clean</button>
+                        <button class="mode-button" onclick="selectMode('Lost Break')">Lost Break</button>
+                        <button class="mode-button" onclick="selectMode('Lost Sideline')">Lost Sideline</button>
+                        <button class="mode-button" onclick="selectMode('Lost Foul')">Lost Foul</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Definition Screen for Kickout - Against -->
+            <div id="definition-kickout-against" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Kickout - Against</h3>
+                <button class="definition-button" onclick="selectDefinition('Contested')">Contested</button>
+                <button class="definition-button" onclick="selectDefinition('Not Contested')">Not Contested</button>
+            </div>
+
+            <!-- Mode Screen for 2-Point - Against -->
+            <div id="mode-2-point-against" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for 2-Point - Against</h3>
+                <button class="mode-button" onclick="selectDefinition('Open Play L')">Open Play L</button>
+                <button class="mode-button" onclick="selectDefinition('Open Play R')">Open Play R</button>
+                <button class="mode-button" onclick="selectDefinition('Freekick')">Freekick</button>
+                <button class="mode-button" onclick="selectDefinition('45')">45</button>
+                <button class="mode-button" onclick="selectDefinition('Off. Mark')">Off. Mark</button>
+                <button class="mode-button" onclick="selectDefinition('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for Goal - Against -->
+            <div id="mode-goal-against" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Goal - Against</h3>
+                <button class="mode-button" onclick="selectMode('Open Play L')">Open Play L</button>
+                <button class="mode-button" onclick="selectMode('Open Play R')">Open Play R</button>
+                <button class="mode-button" onclick="selectMode('Open Play H')">Open Play H</button>
+                <button class="mode-button" onclick="selectMode('Penalty')">Penalty</button>
+                <button class="mode-button" onclick="selectMode('Freekick')">Freekick</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for Point - Against -->
+            <div id="mode-point-against" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Point - Against</h3>
+                <button class="mode-button" onclick="selectMode('Open Play L')">Open Play L</button>
+                <button class="mode-button" onclick="selectMode('Open Play R')">Open Play R</button>
+                <button class="mode-button" onclick="selectMode('Open Play H')">Open Play H</button>
+                <button class="mode-button" onclick="selectMode('Freekick')">Freekick</button>
+                <button class="mode-button" onclick="selectMode('45')">45</button>
+                <button class="mode-button" onclick="selectMode('Off. Mark')">Off. Mark</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for Miss - Against -->
+            <div id="mode-miss-against" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Miss - Against</h3>
+                <button class="mode-button" onclick="selectMode('Point Wide')">Point Wide</button>
+                <button class="mode-button" onclick="selectMode('Point Post')">Point Post</button>
+                <button class="mode-button" onclick="selectMode('Point Short')">Point Short</button>
+                <button class="mode-button" onclick="selectMode('Goal Saved')">Goal Saved</button>
+                <button class="mode-button" onclick="selectMode('Goal Wide')">Goal Wide</button>
+                <button class="mode-button" onclick="selectMode('Goal Post')">Goal Post</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
+            </div>
+
+            <div id="definition-miss-against" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <h3>Screen 2 for Miss - Against</h3>
+                <button class="definition-button" onclick="selectDefinition('Open Play L')">Open Play F</button>
+                <button class="definition-button" onclick="selectDefinition('Open Play R')">Open Play F</button>
+                <button class="definition-button" onclick="selectDefinition('Open Play H')">Open Play H</button>
+                <button class="definition-button" onclick="selectDefinition('Freekick')">Freekick</button>
+                <button class="definition-button" onclick="selectDefinition('Penalty')">Penalty</button>
+                <button class="definition-button" onclick="selectDefinition('45')">45</button>
+                <button class="definition-button" onclick="selectDefinition('Off. Mark')">Off. Mark</button>
+                <button class="definition-button" onclick="selectDefinition('Other')">Other</button>
+            </div>
+
+            <!-- Mode Screen for Carry -->
+            <div id="mode-carry" class="screen">
+                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <h3>Screen 1 for Carry</h3>
+                <button class="mode-button" onclick="selectMode('No Take On')">No Take On</button>
+                <button class="mode-button" onclick="selectMode('1 Take On')">1 Take On</button>
+                <button class="mode-button" onclick="selectMode('2 Take On')">2 Take On</button>
+                <button class="mode-button" onclick="selectMode('3 Take On')">3 Take On</button>
+                <button class="mode-button" onclick="selectMode('4 Take On')">4 Take On</button>
+                <button class="mode-button" onclick="selectMode('5+ Take On')">5+ Take On</button>
+            </div>
+            
+            <!-- Coordinate screen -->
+            <div id="coordinate-screen" class="screen">
+                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <div class="coordinate-container">
+                    <canvas id="pitch" width="400" height="500"></canvas>
+                    <div class="coordinate-controls">
+                        <button id="confirmCoordinatesButton">Confirm Coordinates</button>
+                        <p id="coordinate-display-1">X1: -, Y1: -</p>
+                        <p id="coordinate-display-2" style="display:none;">X2: -, Y2: -</p> <!-- Initially hidden -->
+                    </div>
+                </div>    
+            </div>
+        </div>
+
+        <div id="review" class="tab-content" onshow="refreshReviewTab()">
+            <div class="review-layout">
+                <div class="pitch-wrapper">
+                    <canvas id="review-pitch" width="400" height="500"></canvas>
+                </div>
+                
+                <div class="review-controls">
+                    <h3 class="controls-title">Filters</h3>
+                    
+                    <div class="filter-table">
+                        <!-- Column Headings -->
+                        <div class="filter-headers">
+                            <div class="filter-header filter-header-team1">
+                                <div class="team-pill team-1-pill" id="filter-team-1-name">Team 1</div>
+                            </div>
+                            <div class="filter-header filter-header-center">
+                                <!-- Empty center header -->
+                            </div>
+                            <div class="filter-header filter-header-team2">
+                                <div class="team-pill team-2-pill" id="filter-team-2-name">Team 2</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Filter Groups -->
+                        <div class="filter-groups">
+                            <!-- Attacking Group -->
+                            <div class="filter-group" data-group="attacking">
+                                <div class="filter-group-title" onclick="toggleFilterGroup('attacking')">
+                                    <span>Attacking</span>
+                                    <span class="group-toggle-icon">▼</span>
+                                </div>
+                                <div class="filter-rows collapse-content" id="attacking-content">
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-point-score-team1" onchange="toggleFilterVisibility('Point-Score', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Point - Score</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-point-score-team2" onchange="toggleFilterVisibility('Point-Score', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-2-point-score-team1" onchange="toggleFilterVisibility('2-Point-Score', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">2-Point - Score</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-2-point-score-team2" onchange="toggleFilterVisibility('2-Point-Score', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-goal-score-team1" onchange="toggleFilterVisibility('Goal-Score', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Goal - Score</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-goal-score-team2" onchange="toggleFilterVisibility('Goal-Score', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-point-miss-team1" onchange="toggleFilterVisibility('Point-Miss', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Point - Miss</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-point-miss-team2" onchange="toggleFilterVisibility('Point-Miss', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-goal-miss-team1" onchange="toggleFilterVisibility('Goal-Miss', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Goal - Miss</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-goal-miss-team2" onchange="toggleFilterVisibility('Goal-Miss', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Possession Group -->
+                            <div class="filter-group" data-group="possession">
+                                <div class="filter-group-title" onclick="toggleFilterGroup('possession')">
+                                    <span>Possession</span>
+                                    <span class="group-toggle-icon">▼</span>
+                                </div>
+                                <div class="filter-rows collapse-content" id="possession-content">
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-kickout-team1" onchange="toggleFilterVisibility('Kickout', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Kickout</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-kickout-team2" onchange="toggleFilterVisibility('Kickout', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-free-won-team1" onchange="toggleFilterVisibility('Free Won', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Free Won</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-free-won-team2" onchange="toggleFilterVisibility('Free Won', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-ball-lost-forced-team1" onchange="toggleFilterVisibility('Ball Lost (Forced)', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Ball Lost (Forced)</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-ball-lost-forced-team2" onchange="toggleFilterVisibility('Ball Lost (Forced)', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-ball-lost-unforced-team1" onchange="toggleFilterVisibility('Ball Lost (Unforced)', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Ball Lost (Unforced)</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-ball-lost-unforced-team2" onchange="toggleFilterVisibility('Ball Lost (Unforced)', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-handpass-team1" onchange="toggleFilterVisibility('Handpass', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Handpass</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-handpass-team2" onchange="toggleFilterVisibility('Handpass', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-kickpass-team1" onchange="toggleFilterVisibility('Kickpass', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Kickpass</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-kickpass-team2" onchange="toggleFilterVisibility('Kickpass', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-carry-team1" onchange="toggleFilterVisibility('Carry', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Carry</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-carry-team2" onchange="toggleFilterVisibility('Carry', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Defence Group -->
+                            <div class="filter-group" data-group="defence">
+                                <div class="filter-group-title" onclick="toggleFilterGroup('defence')">
+                                    <span>Defence</span>
+                                    <span class="group-toggle-icon">▼</span>
+                                </div>
+                                <div class="filter-rows collapse-content" id="defence-content">
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-ball-won-forced-team1" onchange="toggleFilterVisibility('Ball Won (Forced)', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Ball Won (Forced)</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-ball-won-forced-team2" onchange="toggleFilterVisibility('Ball Won (Forced)', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-ball-won-unforced-team1" onchange="toggleFilterVisibility('Ball Won (Unforced)', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Ball Won (Unforced)</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-ball-won-unforced-team2" onchange="toggleFilterVisibility('Ball Won (Unforced)', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="filter-row">
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-foul-committed-team1" onchange="toggleFilterVisibility('Foul Committed', 1)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                        <div class="filter-name">Foul Committed</div>
+                                        <div class="filter-toggle-cell">
+                                            <label class="filter-toggle">
+                                                <input type="checkbox" id="filter-foul-committed-team2" onchange="toggleFilterVisibility('Foul Committed', 2)">
+                                                <span class="filter-slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="summary" class="tab-content">
+            <div class="summary-header">
+                <div class="summary-toggle-container">
+                    <button id="timeline-toggle" class="summary-toggle-button active" onclick="switchSummaryView('timeline')">
+                        <span class="toggle-icon">📅</span>
+                        <span class="toggle-text">Timeline</span>
+                    </button>
+                    <div class="summary-center-space"></div>
+                    <button id="table-toggle" class="summary-toggle-button" onclick="switchSummaryView('table')">
+                        <span class="toggle-icon">📊</span>
+                        <span class="toggle-text">Table</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="summary-content">
+                <!-- Timeline View -->
+                <div id="timeline-view" class="summary-view active">
+                    <div class="timeline-container">
+                        <div class="timeline-line"></div>
+                        <div id="timeline-content" class="timeline-content">
+                            <!-- Timeline items will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table View -->
+                <div id="table-view" class="summary-view">
+                    <div id="summary-container">
+                        <table id="summary-table">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Mode</th>
+                                    <th>Definition</th>
+                                    <th>Player</th>
+                                    <th>Player 2</th>
+                                    <th>X_1</th>
+                                    <th>Y_1</th>
+                                    <th>X_2</th>
+                                    <th>Y_2</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Export Data Button -->
+                    <div class="export-data-container">
+                        <button id="export-data-btn" class="export-data-button" onclick="exportDataToCSV()">
+                            Export Data
+                        </button>
+                    </div>
+                    
+                    <!-- Upload Data Button -->
+                    <div class="upload-data-container">
+                        <input type="file" id="csv-file-input" accept=".csv" style="display: none;" onchange="handleCSVUpload(event)">
+                        <button id="upload-data-btn" class="upload-data-button" onclick="document.getElementById('csv-file-input').click()">
+                            Upload Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Tab Content -->
+        <div id="stats-tab" class="tab-content">
+            <div class="stats-container">
+                <div class="stats-columns">
+                    <!-- Left Column - Team 1 -->
+                    <div class="stats-column stats-column-left">
+                        <div class="stats-team-pill" id="stats-team-1-pill">
+                            <span id="stats-team-1-name">Team 1</span>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-shots">0</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-scores">0 (0 - 0 - 0)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-conversion">0%</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-shots-from-attacks">0/0 (0%)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-scores-from-attacks">0/0 (0%)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section stats-divider">
+                            <div class="stat-item">
+                                <hr class="stat-divider-line">
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-kickouts">0</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-kickouts-won">0/0 (0% Won)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-uncontested">0/0 (0% Won)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-1-contested">0/0 (0% Won)</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Center Column - Stats Title -->
+                    <div class="stats-column stats-column-center">
+                        <div class="stats-title">
+                            <h1>STATS</h1>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Total Shots</h3>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Scores</h3>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Shot Conversion</h3>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Shots/Attacks</h3>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Scores/Attacks</h3>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <hr class="stat-divider-line">
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Kickouts</h3>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Total Won</h3>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Uncontested</h3>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <h3 class="stat-label">Contested</h3>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column - Team 2 -->
+                    <div class="stats-column stats-column-right">
+                        <div class="stats-team-pill" id="stats-team-2-pill">
+                            <span id="stats-team-2-name">Team 2</span>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-shots">0</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-scores">0 (0 - 0 - 0)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-conversion">0%</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-shots-from-attacks">0/0 (0%)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-scores-from-attacks">0/0 (0%)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section stats-divider">
+                            <div class="stat-item">
+                                <hr class="stat-divider-line">
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-kickouts">0</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-kickouts-won">0/0 (0% Won)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-uncontested">0/0 (0% Won)</span>
+                            </div>
+                        </div>
+                        <div class="stats-section">
+                            <div class="stat-item">
+                                <span class="stat-value" id="stats-team-2-contested">0/0 (0% Won)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="row-options-popup" class="popup-menu">
+        <button onclick="handleRowOption('addNote')">📝 Add Note</button>
+        <button onclick="handleRowOption('delete')">🗑️ Delete</button>
+        <button onclick="hideRowOptionsMenu()" class="cancel-option-btn">Cancel</button>
+    </div>
+
+    <div id="note-popup" class="popup" style="display: none;">
+        <div class="popup-content sleek-popup">
+            <h3 class="popup-title">Notes</h3>
+
+            <!-- Quick Note Buttons -->
+            <div id="quick-note-container" class="quick-notes-grid">
+                <button class="popup-menu-button" onclick="addQuickNote('Great play')">Great play</button>
+                <button class="popup-menu-button" onclick="addQuickNote('Poor decision')">Poor decision</button>
+                <button class="popup-menu-button" onclick="addQuickNote('Key moment')">Key moment</button>
+                <button class="popup-menu-button" onclick="addQuickNote('Needs review')">Needs review</button>
+                <button class="popup-menu-button" onclick="addQuickNote('Excellent run')">Excellent run</button>
+                <button class="popup-menu-button" onclick="addQuickNote('Tactical foul')">Tactical foul</button>
+            </div>
+
+            <!-- Custom Note Input -->
+            <textarea id="custom-note-input" class="custom-note-input small" placeholder="Type a custom note..."></textarea>
+
+            <!-- View/Edit Existing Notes -->
+            <div id="note-list" class="note-list" style="margin-top: 16px;"></div>
+
+            <!-- Action Buttons -->
+            <div class="popup-button-row">
+                <button id="note-confirm-button" class="popup-menu-button confirm" onclick="confirmNote()">Add Note</button>
+                <button id="note-edit-button" class="popup-menu-button edit" onclick="enterEditNoteMode()" style="display: none;">Edit</button>
+                <button class="popup-menu-button cancel" onclick="closeNotePopup()">Close</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
