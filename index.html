@@ -428,7 +428,7 @@
             </div>
             <!-- Player Selection Screen -->
             <div id="player-buttons" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Select Player</h3>
                 <div class="player-button-container">
                     <button class="player-button" onclick="selectPlayer(1)" aria-label="Select Player 1">#1 - GK</button>
@@ -461,7 +461,7 @@
 
             <!-- Team 2 Player Selection Screen -->
             <div id="player-buttons-team2" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Select Team 2 Player</h3>
                 <div class="player-button-container">
                     <button class="player-button" onclick="selectPlayer(101)" aria-label="Select Player 101">#101 - GK</button>
@@ -494,7 +494,7 @@
 
             <!-- Second Player Selection Screen -->
             <div id="player-buttons-second" class="screen">
-                <button class="return-button" onclick="returnToFirstPlayerScreen()">Return to First Player</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Select Receiver</h3>
                 <div class="player-button-container">
                     <button class="player-button" onclick="selectSecondPlayer(1)" aria-label="Select Receiver 1">#1 - GK</button>
@@ -527,7 +527,7 @@
 
             <!-- Team 2 Second Player Selection Screen -->
             <div id="player-buttons-second-team2" class="screen">
-                <button class="return-button" onclick="returnToFirstPlayerScreen()">Return to First Player</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Select Team 2 Receiver</h3>
                 <div class="player-button-container">
                     <button id="opp-player-1-button" class="player-button" onclick="selectSecondPlayer(101)" aria-label="Select Player 101">#101 - GK</button>
@@ -560,7 +560,7 @@
 
             <!-- Mode Screens -->
             <div id="mode-point-score" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Point - Score</h3>
                 <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
                 <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
@@ -574,7 +574,7 @@
 
             <!-- Mode Screen for 2-Point - Score -->
             <div id="mode-2-point-score" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for 2-Point - Score</h3>
                 <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
                 <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
@@ -584,7 +584,7 @@
             </div>
 
             <div id="mode-goal-score" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Goal - Score</h3>
                 <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
                 <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
@@ -596,7 +596,7 @@
             </div>
 
             <div id="mode-goal-miss" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Goal - Miss</h3>
                 <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
                 <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
@@ -607,7 +607,7 @@
             </div>
 
             <div id="mode-point-miss" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Point - Miss</h3>
                 <button class="mode-button" onclick="selectMode('Open Play LF')">Open Play LF</button>
                 <button class="mode-button" onclick="selectMode('Open Play RF')">Open Play RF</button>
@@ -620,7 +620,7 @@
             </div>
 
             <div id="definition-point-miss" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Point - Miss</h3>
                 <button class="definition-button" onclick="selectDefinition('Wide')">Wide</button>
                 <button class="definition-button" onclick="selectDefinition('Short')">Short</button>
@@ -632,7 +632,7 @@
 
             <!-- Definition Screen for Goal - Miss -->
             <div id="definition-goal-miss" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Goal - Miss</h3>
                 <button class="definition-button" onclick="selectDefinition('Wide')">Wide</button>
                 <button class="definition-button" onclick="selectDefinition('GK Save')">GK Save</button>
@@ -645,7 +645,7 @@
 
             <!-- Mode Screen for 45 Entry -->
             <div id="mode-45-entry" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for 45 Entry</h3>
                 <button class="mode-button" onclick="selectMode('Kickpass (Fast)')">Kickpass (Fast)</button>
                 <button class="mode-button" onclick="selectMode('Kickpass (Slow)')">Kickpass (Slow)</button>
@@ -658,7 +658,7 @@
 
             <!-- Mode Screen for Source of Shot -->
             <div id="mode-source-of-shot" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Source of Shot</h3>
                 <button class="mode-button" onclick="selectMode('Own Kickout')">Own Kickout</button>
                 <button class="mode-button" onclick="selectMode('Opp. Kickout')">Opp. Kickout</button>
@@ -671,7 +671,7 @@
 
             <!-- Mode Screen for Free Won -->
             <div id="mode-free-won" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Free Won</h3>
                 <button class="mode-button" onclick="selectMode('Tackle')">Tackle</button>
                 <button class="mode-button" onclick="selectMode('Pulling')">Pulling</button>
@@ -685,7 +685,7 @@
 
             <!-- Definition Screen for Free Won -->
             <div id="definition-free-won" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Free Won</h3>
                 <button class="definition-button" onclick="selectDefinition('No Card')">No Card</button>
                 <button class="definition-button" onclick="selectDefinition('Opp. Yellow')">Opp. Yellow</button>
@@ -695,7 +695,7 @@
 
             <!-- Definition Screen for Ball - Won -->
             <div id="definition-ball-won" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Ball - Won</h3>
                 <button class="definition-button" onclick="selectDefinition('Tackle')">Tackle</button>
                 <button class="definition-button" onclick="selectDefinition('Group Tackle')">Group Tackle</button>
@@ -707,7 +707,7 @@
 
             <!-- Mode Screen for Ball - Won -->
             <div id="mode-ball-won" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Ball Won (Forced)</h3>
                 <button class="mode-button" onclick="selectMode('Individual Tackle')">Individual Tackle</button>
                 <button class="mode-button" onclick="selectMode('Group Tackle')">Group Tackle</button>
@@ -721,7 +721,7 @@
 
             <!-- Mode Screen for Ball Won (Unforced) -->
             <div id="mode-ball-won-unforced" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Ball Won (Unforced)</h3>
                 <button class="mode-button" onclick="selectMode('Kickpass Intercepted')">Kickpass Intercepted</button>
                 <button class="mode-button" onclick="selectMode('Handpass Intercepted')">Handpass Intercepted</button>
@@ -733,7 +733,7 @@
 
             <!-- Definition Screen for Ball - Lost -->
             <div id="definition-ball-lost" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Ball - Lost</h3>
                 <button class="definition-button" onclick="selectDefinition('Tackle')">Tackle</button>
                 <button class="definition-button" onclick="selectDefinition('Handling Error')">Handling Error</button>
@@ -746,7 +746,7 @@
 
             <!-- Mode Screen for Ball - Lost -->
             <div id="mode-ball-lost" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Ball Lost (Forced)</h3>
                 <button class="mode-button" onclick="selectMode('Individual Tackle')">Individual Tackle</button>
                 <button class="mode-button" onclick="selectMode('Group Tackle')">Group Tackle</button>
@@ -759,7 +759,7 @@
 
             <!-- Mode Screen for Ball Lost (Unforced) -->
             <div id="mode-ball-lost-unforced" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Ball Lost (Unforced)</h3>
                 <button class="mode-button" onclick="selectMode('Kickpass Intercepted')">Kickpass Intercepted</button>
                 <button class="mode-button" onclick="selectMode('Handpass Intercepted')">Handpass Intercepted</button>
@@ -771,7 +771,7 @@
 
             <!-- Mode Screen for Foul -->
             <div id="mode-foul" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Foul Committed</h3>
                 <button class="mode-button" onclick="selectMode('Physical')">Physical</button>
                 <button class="mode-button" onclick="selectMode('Technical')">Technical</button>
@@ -779,7 +779,7 @@
 
             <!-- Screen 2 for Physical Fouls -->
             <div id="foul-physical-screen2" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Physical Fouls</h3>
                 <button class="mode-button" onclick="selectDefinition('Tackle')">Tackle</button>
                 <button class="mode-button" onclick="selectDefinition('Pulling')">Pulling</button>
@@ -791,7 +791,7 @@
 
             <!-- Screen 2 for Technical Fouls -->
             <div id="foul-technical-screen2" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Technical Fouls</h3>
                 <button class="mode-button" onclick="selectDefinition('Overcarry')">Overcarry</button>
                 <button class="mode-button" onclick="selectDefinition('Double Hop')">Double Hop</button>
@@ -805,7 +805,7 @@
 
             <!-- Definition Screen for Foul -->
             <div id="definition-foul" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Foul</h3>
                 <button class="definition-button" onclick="selectDefinition('No Card')">No Card</button>
                 <button class="definition-button" onclick="selectDefinition('Yellow Card')">Yellow Card</button>
@@ -815,7 +815,7 @@
 
             <!-- Mode Screen for Pressured Shot -->
             <div id="mode-pressured-shot" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Pressured Shot</h3>
                 <button class="mode-button" onclick="selectMode('Uncontested')">Uncontested</button>
                 <button class="mode-button" onclick="selectMode('Lightly Pressured')">Lightly Pressured</button>
@@ -826,7 +826,7 @@
 
             <!-- Mode Screen for Card Received -->
             <div id="mode-card-received" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Card Received</h3>
                 <button class="mode-button" onclick="selectMode('Yellow Card')">Yellow Card</button>
                 <button class="mode-button" onclick="selectMode('Black Card')">Black Card</button>
@@ -836,7 +836,7 @@
 
             <!-- Screen 2 for Card Received -->
             <div id="card-received-screen2" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Card Received</h3>
                 <button class="mode-button" onclick="selectMode('Rough Tackle')">Rough Tackle</button>
                 <button class="mode-button" onclick="selectMode('Persistent Fouling')">Persistent Fouling</button>
@@ -848,7 +848,7 @@
 
             <!-- Mode Screen for Our Kickout -->
             <div id="mode-our-kickout" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Our Kickout</h3>
                 <div class="mode-columns">
                     <div class="mode-column">
@@ -870,7 +870,7 @@
 
             <!-- Definition Screen for Our Kickout -->
             <div id="definition-our-kickout" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Our Kickout</h3>
                 <button class="definition-button" onclick="selectDefinition('Contested')">Contested</button>
                 <button class="definition-button" onclick="selectDefinition('Uncontested')">Uncontested</button>
@@ -878,7 +878,7 @@
 
             <!-- Mode Screen for Opp. Kickout -->
             <div id="mode-opp-kickout" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Opp. Kickout</h3>
                 <div class="mode-columns">
                     <div class="mode-column">
@@ -900,7 +900,7 @@
 
             <!-- Definition Screen for Opp. Kickout -->
             <div id="definition-opp-kickout" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Opp. Kickout</h3>
                 <button class="definition-button" onclick="selectDefinition('Contested')">Contested</button>
                 <button class="definition-button" onclick="selectDefinition('Uncontested')">Uncontested</button>
@@ -908,7 +908,7 @@
 
             <!-- Mode Screen for Kickout - Against -->
             <div id="mode-kickout-against" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Kickout - Against</h3>
                 <div class="mode-columns">
                     <div class="mode-column">
@@ -930,7 +930,7 @@
 
             <!-- Definition Screen for Kickout - Against -->
             <div id="definition-kickout-against" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Kickout - Against</h3>
                 <button class="definition-button" onclick="selectDefinition('Contested')">Contested</button>
                 <button class="definition-button" onclick="selectDefinition('Not Contested')">Not Contested</button>
@@ -938,7 +938,7 @@
 
             <!-- Mode Screen for 2-Point - Against -->
             <div id="mode-2-point-against" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for 2-Point - Against</h3>
                 <button class="mode-button" onclick="selectDefinition('Open Play L')">Open Play L</button>
                 <button class="mode-button" onclick="selectDefinition('Open Play R')">Open Play R</button>
@@ -950,7 +950,7 @@
 
             <!-- Mode Screen for Goal - Against -->
             <div id="mode-goal-against" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Goal - Against</h3>
                 <button class="mode-button" onclick="selectMode('Open Play L')">Open Play L</button>
                 <button class="mode-button" onclick="selectMode('Open Play R')">Open Play R</button>
@@ -962,7 +962,7 @@
 
             <!-- Mode Screen for Point - Against -->
             <div id="mode-point-against" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Point - Against</h3>
                 <button class="mode-button" onclick="selectMode('Open Play L')">Open Play L</button>
                 <button class="mode-button" onclick="selectMode('Open Play R')">Open Play R</button>
@@ -975,7 +975,7 @@
 
             <!-- Mode Screen for Miss - Against -->
             <div id="mode-miss-against" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Miss - Against</h3>
                 <button class="mode-button" onclick="selectMode('Point Wide')">Point Wide</button>
                 <button class="mode-button" onclick="selectMode('Point Post')">Point Post</button>
@@ -987,7 +987,7 @@
             </div>
 
             <div id="definition-miss-against" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 2 for Miss - Against</h3>
                 <button class="definition-button" onclick="selectDefinition('Open Play L')">Open Play F</button>
                 <button class="definition-button" onclick="selectDefinition('Open Play R')">Open Play F</button>
@@ -1001,7 +1001,7 @@
 
             <!-- Mode Screen for Carry -->
             <div id="mode-carry" class="screen">
-                <button class="return-button" onclick="returnToActionScreen()">Return to Actions</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Carry</h3>
                 <button class="mode-button" onclick="selectMode('No Take On')">No Take On</button>
                 <button class="mode-button" onclick="selectMode('1 Take On')">1 Take On</button>
@@ -1013,7 +1013,7 @@
             
             <!-- Coordinate screen -->
             <div id="coordinate-screen" class="screen">
-                <button class="return-button" onclick="returnToModeScreen()">Return to Screen 1</button>
+                <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <div class="coordinate-container">
                     <canvas id="pitch" width="400" height="500"></canvas>
                     <div class="coordinate-controls">
@@ -1041,7 +1041,7 @@
                                 <div class="team-pill team-1-pill" id="filter-team-1-name">Team 1</div>
                             </div>
                             <div class="filter-header filter-header-center">
-                                <!-- Empty center header -->
+                                <button class="clear-filters-button" onclick="clearAllFilters()">Clear Filters</button>
                             </div>
                             <div class="filter-header filter-header-team2">
                                 <div class="team-pill team-2-pill" id="filter-team-2-name">Team 2</div>
@@ -1394,173 +1394,136 @@
         <!-- Stats Tab Content -->
         <div id="stats-tab" class="tab-content">
             <div class="stats-container">
-                <div class="stats-columns">
-                    <!-- Left Column - Team 1 -->
-                    <div class="stats-column stats-column-left">
-                        <div class="stats-team-pill" id="stats-team-1-pill">
-                            <span id="stats-team-1-name">Team 1</span>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                <div class="stats-title">
+                    <h1>STATS</h1>
+                </div>
+                
+                <!-- Team Headers -->
+                <div class="stats-team-headers">
+                    <div class="stats-team-pill" id="stats-team-1-pill">
+                        <span id="stats-team-1-name">Team 1</span>
+                    </div>
+                    <div class="stats-team-pill stats-team-pill-center">
+                        <span>STATS</span>
+                    </div>
+                    <div class="stats-team-pill" id="stats-team-2-pill">
+                        <span id="stats-team-2-name">Team 2</span>
+                    </div>
+                </div>
+                
+                <!-- Shooting Group -->
+                <div class="stats-group">
+                    <div class="stats-group-header" onclick="toggleStatsGroup('shooting')">
+                        <h3 class="stats-group-title">Shooting</h3>
+                        <span class="stats-group-toggle" id="shooting-toggle">▶</span>
+                    </div>
+                    <div class="stats-group-content collapsed" id="shooting-content">
+                        <div class="stats-row">
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-1-shots">0</span>
                             </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stats-team-1-scores">0 (0 - 0 - 0)</span>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stats-team-1-conversion">0%</span>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stats-team-1-shots-from-attacks">0/0 (0%)</span>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stats-team-1-scores-from-attacks">0/0 (0%)</span>
-                            </div>
-                        </div>
-                        <div class="stats-section stats-divider">
-                            <div class="stat-item">
-                                <hr class="stat-divider-line">
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stats-team-1-kickouts">0</span>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stats-team-1-kickouts-won">0/0 (0% Won)</span>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stats-team-1-uncontested">0/0 (0% Won)</span>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <span class="stat-value" id="stats-team-1-contested">0/0 (0% Won)</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Center Column - Stats Title -->
-                    <div class="stats-column stats-column-center">
-                        <div class="stats-title">
-                            <h1>STATS</h1>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                            <div class="stats-column">
                                 <h3 class="stat-label">Total Shots</h3>
                             </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <h3 class="stat-label">Scores</h3>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <h3 class="stat-label">Shot Conversion</h3>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <h3 class="stat-label">Shots/Attacks</h3>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <h3 class="stat-label">Scores/Attacks</h3>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <hr class="stat-divider-line">
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <h3 class="stat-label">Kickouts</h3>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <h3 class="stat-label">Total Won</h3>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <h3 class="stat-label">Uncontested</h3>
-                            </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
-                                <h3 class="stat-label">Contested</h3>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Column - Team 2 -->
-                    <div class="stats-column stats-column-right">
-                        <div class="stats-team-pill" id="stats-team-2-pill">
-                            <span id="stats-team-2-name">Team 2</span>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-shots">0</span>
                             </div>
                         </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                        <div class="stats-row">
+                            <div class="stats-column">
+                                <span class="stat-value" id="stats-team-1-scores">0 (0 - 0 - 0)</span>
+                            </div>
+                            <div class="stats-column">
+                                <h3 class="stat-label">Scores</h3>
+                            </div>
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-scores">0 (0 - 0 - 0)</span>
                             </div>
                         </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                        <div class="stats-row">
+                            <div class="stats-column">
+                                <span class="stat-value" id="stats-team-1-conversion">0%</span>
+                            </div>
+                            <div class="stats-column">
+                                <h3 class="stat-label">Shot Conversion</h3>
+                            </div>
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-conversion">0%</span>
                             </div>
                         </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                        <div class="stats-row">
+                            <div class="stats-column">
+                                <span class="stat-value" id="stats-team-1-shots-from-attacks">0/0 (0%)</span>
+                            </div>
+                            <div class="stats-column">
+                                <h3 class="stat-label">Shots/Attacks</h3>
+                            </div>
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-shots-from-attacks">0/0 (0%)</span>
                             </div>
                         </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                        <div class="stats-row">
+                            <div class="stats-column">
+                                <span class="stat-value" id="stats-team-1-scores-from-attacks">0/0 (0%)</span>
+                            </div>
+                            <div class="stats-column">
+                                <h3 class="stat-label">Scores/Attacks</h3>
+                            </div>
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-scores-from-attacks">0/0 (0%)</span>
                             </div>
                         </div>
-                        <div class="stats-section stats-divider">
-                            <div class="stat-item">
-                                <hr class="stat-divider-line">
+                    </div>
+                </div>
+                
+                <!-- Kickouts Group -->
+                <div class="stats-group">
+                    <div class="stats-group-header" onclick="toggleStatsGroup('kickouts')">
+                        <h3 class="stats-group-title">Kickouts</h3>
+                        <span class="stats-group-toggle" id="kickouts-toggle">▶</span>
+                    </div>
+                    <div class="stats-group-content collapsed" id="kickouts-content">
+                        <div class="stats-row">
+                            <div class="stats-column">
+                                <span class="stat-value" id="stats-team-1-kickouts">0</span>
                             </div>
-                        </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                            <div class="stats-column">
+                                <h3 class="stat-label">Kickouts</h3>
+                            </div>
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-kickouts">0</span>
                             </div>
                         </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                        <div class="stats-row">
+                            <div class="stats-column">
+                                <span class="stat-value" id="stats-team-1-kickouts-won">0/0 (0% Won)</span>
+                            </div>
+                            <div class="stats-column">
+                                <h3 class="stat-label">Total Won</h3>
+                            </div>
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-kickouts-won">0/0 (0% Won)</span>
                             </div>
                         </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                        <div class="stats-row">
+                            <div class="stats-column">
+                                <span class="stat-value" id="stats-team-1-uncontested">0/0 (0% Won)</span>
+                            </div>
+                            <div class="stats-column">
+                                <h3 class="stat-label">Uncontested</h3>
+                            </div>
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-uncontested">0/0 (0% Won)</span>
                             </div>
                         </div>
-                        <div class="stats-section">
-                            <div class="stat-item">
+                        <div class="stats-row">
+                            <div class="stats-column">
+                                <span class="stat-value" id="stats-team-1-contested">0/0 (0% Won)</span>
+                            </div>
+                            <div class="stats-column">
+                                <h3 class="stat-label">Contested</h3>
+                            </div>
+                            <div class="stats-column">
                                 <span class="stat-value" id="stats-team-2-contested">0/0 (0% Won)</span>
                             </div>
                         </div>
@@ -1606,4 +1569,7 @@
     </div>
     <script src="script.js"></script>
 </body>
+</html>
+</html>
+</html>
 </html>
