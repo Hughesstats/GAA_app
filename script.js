@@ -152,6 +152,16 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Initialize dark mode
     initializeDarkMode();
+    
+    // Initialize Match Log action button styling (after dark mode is set)
+    updateMatchLogActionButtonBorders();
+    
+    // Ensure colors are correct when page becomes visible
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            updateAllActionButtonColors();
+        }
+    });
 });
 
 // Dark Mode Toggle
@@ -166,6 +176,9 @@ function toggleDarkMode() {
         document.documentElement.setAttribute('data-theme', 'light');
         localStorage.setItem('darkMode', 'false');
     }
+    
+    // Update all action button colors when dark mode changes
+    updateAllActionButtonColors();
 }
 
 // Initialize dark mode on page load
@@ -1055,8 +1068,15 @@ function handleCSVUpload(event) {
             // Add new entries to existing data (stack, don't replace)
             actionsLog.push(...newEntries);
             
+            // Update score counters based on uploaded data
+            updateScoreCountersFromData();
+            
             // Update the summary table
             updateSummary();
+            
+            // Update counters and stats
+            updateCounters();
+            updateStatsTab();
             
             alert(`Successfully uploaded ${newEntries.length} data entries.`);
             
@@ -1601,6 +1621,53 @@ function closeNotePopup() {
 function updateCounters() {
     document.getElementById('counter-team-1').textContent = `${team1Goals}-${team1Points.toString().padStart(2, '0')}`;
     document.getElementById('counter-team-2').textContent = `${team2Goals}-${team2Points.toString().padStart(2, '0')}`;
+}
+
+// Update score counters by recalculating from all data
+function updateScoreCountersFromData() {
+    // Reset counters
+    team1Goals = 0;
+    team1Points = 0;
+    team2Goals = 0;
+    team2Points = 0;
+    
+    // Recalculate from all actions in the log
+    actionsLog.forEach(entry => {
+        const teamCode = getTeamFromAction(entry);
+        
+        switch (entry.action) {
+            case 'Point - Score':
+                if (teamCode === 'team2') {
+                    team2Points += 1;
+                } else {
+                    team1Points += 1;
+                }
+                break;
+            case '2-Point - Score':
+                if (teamCode === 'team2') {
+                    team2Points += 2;
+                } else {
+                    team1Points += 2;
+                }
+                break;
+            case 'Goal - Score':
+                if (teamCode === 'team2') {
+                    team2Goals += 1;
+                } else {
+                    team1Goals += 1;
+                }
+                break;
+            case 'Point - Against':
+                team2Points += 1;
+                break;
+            case '2-Point - Against':
+                team2Points += 2;
+                break;
+            case 'Goal - Against':
+                team2Goals += 1;
+                break;
+        }
+    });
 }
 
 function resetSelection() {
@@ -2264,17 +2331,17 @@ const drawReviewMarker = (x, y, color, entry, actionType, markerType = 'circle')
         // Reset line width to default
         reviewCtx.lineWidth = 1;
     } else if (markerType === 'kickoutWonUncontested') {
-        // Draw black filled circle
+        // Draw blue filled circle
         const mappedX = mapXReview(x);
         const mappedY = mapYReview(y);
         const radius = 6;
         
         reviewCtx.beginPath();
         reviewCtx.arc(mappedX, mappedY, radius, 0, Math.PI * 2);
-        reviewCtx.fillStyle = 'black';
+        reviewCtx.fillStyle = 'blue';
         reviewCtx.fill();
     } else if (markerType === 'kickoutWonContested') {
-        // Draw black filled diamond
+        // Draw blue filled diamond
         const mappedX = mapXReview(x);
         const mappedY = mapYReview(y);
         const size = 6;
@@ -2285,7 +2352,7 @@ const drawReviewMarker = (x, y, color, entry, actionType, markerType = 'circle')
         reviewCtx.lineTo(mappedX, mappedY + size); // Bottom
         reviewCtx.lineTo(mappedX - size, mappedY); // Left
         reviewCtx.closePath();
-        reviewCtx.fillStyle = 'black';
+        reviewCtx.fillStyle = 'blue';
         reviewCtx.fill();
     } else if (markerType === 'kickoutLostUncontested') {
         // Draw black hollow circle with X inside
@@ -2342,17 +2409,17 @@ const drawReviewMarker = (x, y, color, entry, actionType, markerType = 'circle')
         // Reset line width to default
         reviewCtx.lineWidth = 1;
     } else if (markerType === 'kickoutTeam2WonUncontested') {
-        // Draw navy filled circle
+        // Draw black filled circle
         const mappedX = mapXReview(x);
         const mappedY = mapYReview(y);
         const radius = 6;
         
         reviewCtx.beginPath();
         reviewCtx.arc(mappedX, mappedY, radius, 0, Math.PI * 2);
-        reviewCtx.fillStyle = '#1e3a8a'; // Navy color
+        reviewCtx.fillStyle = 'black';
         reviewCtx.fill();
     } else if (markerType === 'kickoutTeam2WonContested') {
-        // Draw navy filled diamond
+        // Draw black filled diamond
         const mappedX = mapXReview(x);
         const mappedY = mapYReview(y);
         const size = 6;
@@ -2363,62 +2430,32 @@ const drawReviewMarker = (x, y, color, entry, actionType, markerType = 'circle')
         reviewCtx.lineTo(mappedX, mappedY + size); // Bottom
         reviewCtx.lineTo(mappedX - size, mappedY); // Left
         reviewCtx.closePath();
-        reviewCtx.fillStyle = '#1e3a8a'; // Navy color
+        reviewCtx.fillStyle = 'black';
         reviewCtx.fill();
     } else if (markerType === 'kickoutTeam2LostUncontested') {
-        // Draw navy hollow circle with X inside
+        // Draw blue filled circle
         const mappedX = mapXReview(x);
         const mappedY = mapYReview(y);
         const radius = 6;
         
-        // Draw hollow circle
         reviewCtx.beginPath();
         reviewCtx.arc(mappedX, mappedY, radius, 0, Math.PI * 2);
-        reviewCtx.strokeStyle = '#1e3a8a'; // Navy color
-        reviewCtx.lineWidth = 2;
-        reviewCtx.stroke();
-        
-        // Draw X inside
-        reviewCtx.beginPath();
-        reviewCtx.moveTo(mappedX - 4, mappedY - 4);
-        reviewCtx.lineTo(mappedX + 4, mappedY + 4);
-        reviewCtx.moveTo(mappedX + 4, mappedY - 4);
-        reviewCtx.lineTo(mappedX - 4, mappedY + 4);
-        reviewCtx.strokeStyle = '#1e3a8a'; // Navy color
-        reviewCtx.lineWidth = 2;
-        reviewCtx.stroke();
-        
-        // Reset line width to default
-        reviewCtx.lineWidth = 1;
+        reviewCtx.fillStyle = 'blue';
+        reviewCtx.fill();
     } else if (markerType === 'kickoutTeam2LostContested') {
-        // Draw navy hollow diamond with X inside
+        // Draw blue filled diamond
         const mappedX = mapXReview(x);
         const mappedY = mapYReview(y);
         const size = 6;
         
-        // Draw hollow diamond
         reviewCtx.beginPath();
         reviewCtx.moveTo(mappedX, mappedY - size); // Top
         reviewCtx.lineTo(mappedX + size, mappedY); // Right
         reviewCtx.lineTo(mappedX, mappedY + size); // Bottom
         reviewCtx.lineTo(mappedX - size, mappedY); // Left
         reviewCtx.closePath();
-        reviewCtx.strokeStyle = '#1e3a8a'; // Navy color
-        reviewCtx.lineWidth = 2;
-        reviewCtx.stroke();
-        
-        // Draw X inside
-        reviewCtx.beginPath();
-        reviewCtx.moveTo(mappedX - 4, mappedY - 4);
-        reviewCtx.lineTo(mappedX + 4, mappedY + 4);
-        reviewCtx.moveTo(mappedX + 4, mappedY - 4);
-        reviewCtx.lineTo(mappedX - 4, mappedY + 4);
-        reviewCtx.strokeStyle = '#1e3a8a'; // Navy color
-        reviewCtx.lineWidth = 2;
-        reviewCtx.stroke();
-        
-        // Reset line width to default
-        reviewCtx.lineWidth = 1;
+        reviewCtx.fillStyle = 'blue';
+        reviewCtx.fill();
     } else if (markerType === 'freeWon') {
         // Draw turquoise rounded hexagon
         const mappedX = mapXReview(x);
@@ -4129,19 +4166,27 @@ function switchMatchLogTeam(teamNumber) {
         team1Toggle.classList.remove('active');
     }
     
-    // Update text colors for both toggles to ensure proper contrast
+    // Update text colors for the active toggle only
     // Load team designs to get the correct colors
     const team1Data = loadTeamSheetFromLocalStorage(1);
     const team2Data = loadTeamSheetFromLocalStorage(2);
     
-    if (team1Data) {
-        const team1TextColor = getContrastColor(team1Data.primaryColor);
-        team1Toggle.style.setProperty('color', team1TextColor, 'important');
-    }
-    
-    if (team2Data) {
-        const team2TextColor = getContrastColor(team2Data.primaryColor);
-        team2Toggle.style.setProperty('color', team2TextColor, 'important');
+    if (teamNumber === 1) {
+        // Team 1 is active - set its text color and reset Team 2
+        if (team1Data) {
+            const team1TextColor = getContrastColor(team1Data.primaryColor);
+            team1Toggle.style.setProperty('color', team1TextColor, 'important');
+        }
+        // Reset Team 2 to default color
+        team2Toggle.style.removeProperty('color');
+    } else {
+        // Team 2 is active - set its text color and reset Team 1
+        if (team2Data) {
+            const team2TextColor = getContrastColor(team2Data.primaryColor);
+            team2Toggle.style.setProperty('color', team2TextColor, 'important');
+        }
+        // Reset Team 1 to default color
+        team1Toggle.style.removeProperty('color');
     }
     
     // Update action button borders to show selected team
@@ -4160,6 +4205,10 @@ function switchMatchLogTeam(teamNumber) {
 function updateMatchLogActionButtonBorders() {
     const actionButtons = document.querySelectorAll('#match-log-action-buttons .action-button');
     
+    // Get team data for color calculation
+    const team1Data = loadTeamSheetFromLocalStorage(1);
+    const team2Data = loadTeamSheetFromLocalStorage(2);
+    
     actionButtons.forEach(button => {
         // Remove existing team classes
         button.classList.remove('team-1-active', 'team-2-active');
@@ -4170,10 +4219,64 @@ function updateMatchLogActionButtonBorders() {
         } else {
             button.classList.add('team-2-active');
         }
+        
+        // Set text color based on current theme
+        updateActionButtonTextColor(button, currentMatchLogTeam, team1Data, team2Data);
     });
     
     // Update action button text based on current team
     updateMatchLogActionButtonText();
+}
+
+// Dedicated function to handle action button text colors
+function updateActionButtonTextColor(button, teamNumber, team1Data, team2Data) {
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    if (isDarkMode) {
+        // Dark mode: always white text
+        button.style.setProperty('color', 'white', 'important');
+    } else {
+        // Light mode: always black text
+        button.style.setProperty('color', 'black', 'important');
+    }
+}
+
+// Function to update all action button colors (can be called from anywhere)
+function updateAllActionButtonColors() {
+    const actionButtons = document.querySelectorAll('#match-log-action-buttons .action-button');
+    const team1Data = loadTeamSheetFromLocalStorage(1);
+    const team2Data = loadTeamSheetFromLocalStorage(2);
+    
+    actionButtons.forEach(button => {
+        updateActionButtonTextColor(button, currentMatchLogTeam, team1Data, team2Data);
+    });
+}
+
+// Cancel function - returns to Match Log and clears current action
+function cancelCurrentAction() {
+    // Clear any current action data
+    currentAction = {
+        action: null,
+        definition: null,
+        mode: null
+    };
+    
+    // Reset any context flags
+    window.matchLogContext = false;
+    
+    // Return to Match Log tab
+    openTab('stats');
+    
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+    });
+    
+    // Show the Match Log action buttons
+    const actionButtonsScreen = document.getElementById('match-log-action-buttons');
+    if (actionButtonsScreen) {
+        actionButtonsScreen.classList.add('active');
+    }
 }
 
 function updateMatchLogActionButtonText() {
@@ -6062,6 +6165,34 @@ function toggleFilterVisibility(actionType, teamNumber) {
     filterActions();
 }
 
+// Function to clear all filters
+function clearAllFilters() {
+    console.log('Clearing all filters...');
+    
+    // Get all filter checkboxes
+    const filterCheckboxes = document.querySelectorAll('#review input[type="checkbox"]');
+    
+    // Uncheck all filter checkboxes
+    filterCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    
+    // Collapse all filter groups
+    const filterGroups = document.querySelectorAll('.filter-group');
+    filterGroups.forEach(group => {
+        group.classList.add('collapsed');
+        const toggleIcon = group.querySelector('.group-toggle-icon');
+        if (toggleIcon) {
+            toggleIcon.textContent = '▶';
+        }
+    });
+    
+    // Refresh the review tab to show all actions
+    filterActions();
+    
+    console.log('All filters cleared and groups collapsed');
+}
+
 
 // Test function for Point-Score filtering
 function testPointScoreFiltering() {
@@ -6361,6 +6492,29 @@ function updateStatsTab() {
     if (team2ContestedElement) {
         const team2ContestedWinPercentage = team2Contested > 0 ? Math.round((team2ContestedWon / team2Contested) * 100) : 0;
         team2ContestedElement.textContent = `${team2ContestedWon}/${team2Contested} (${team2ContestedWinPercentage}% Won)`;
+    }
+}
+
+// Toggle stats group visibility
+function toggleStatsGroup(groupName) {
+    const content = document.getElementById(`${groupName}-content`);
+    const toggle = document.getElementById(`${groupName}-toggle`);
+    const header = document.querySelector(`[onclick="toggleStatsGroup('${groupName}')"]`);
+    
+    if (content && toggle && header) {
+        const isCollapsed = content.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            // Expand - remove collapsed class
+            content.classList.remove('collapsed');
+            header.classList.add('expanded');
+            toggle.textContent = '▼';
+        } else {
+            // Collapse - add collapsed class
+            content.classList.add('collapsed');
+            header.classList.remove('expanded');
+            toggle.textContent = '▶';
+        }
     }
 }
 
