@@ -298,7 +298,7 @@ html, body {
 .action-button-container {
     display: flex;
     flex-direction: column;
-    gap: var(--space-sm);
+    gap: var(--space-md);
 }
 
 /* Modern Pill Buttons */
@@ -306,9 +306,9 @@ html, body {
     background: #1f2937;
     color: #ffffff;
     border: none;
-    padding: var(--space-xs) var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
     margin: 2px;
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-lg);
     font-weight: var(--font-weight-medium);
     border-radius: var(--radius-full);
     cursor: pointer;
@@ -318,7 +318,7 @@ html, body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     position: relative;
     overflow: hidden;
-    min-height: 40px;
+    min-height: 52px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -433,6 +433,26 @@ html, body {
     will-change: transform;
 }
 
+/* CANCEL button styling */
+.cancel-button {
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    padding: var(--space-sm) var(--space-lg);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: transform var(--motion-std) var(--easing), 
+                box-shadow var(--motion-std) var(--easing),
+                background-color var(--motion-std) var(--easing);
+    margin-bottom: var(--space-lg);
+    box-shadow: var(--shadow-xs);
+    will-change: transform;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 .return-button:hover {
     background: color-mix(in srgb, var(--color-warning) 90%, black);
     transform: translateY(var(--hover-lift-sm)) scale(var(--hover-scale));
@@ -446,36 +466,120 @@ html, body {
                 box-shadow var(--motion-short) var(--easing);
 }
 
-/* Mode and definition buttons */
-.mode-button,
-.definition-button {
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    border: 1px solid rgba(37, 99, 235, 0.2);
-    padding: var(--space-md) var(--space-lg);
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-medium);
-    border-radius: var(--radius-full);
-    cursor: pointer;
-    width: 100%;
-    transition: transform var(--motion-std) var(--easing), 
-                box-shadow var(--motion-std) var(--easing),
-                background-color var(--motion-std) var(--easing),
-                border-color var(--motion-std) var(--easing);
-    box-shadow: var(--shadow-xs);
-    will-change: transform;
-}
-
-.mode-button:hover,
-.definition-button:hover {
-    background: var(--color-primary-light);
-    border-color: var(--color-primary);
+.cancel-button:hover {
+    background: #b91c1c;
+    color: #ffffff;
     transform: translateY(var(--hover-lift-sm)) scale(var(--hover-scale));
     box-shadow: var(--shadow-md);
 }
 
+.cancel-button:active {
+    background: #991b1b;
+    color: #ffffff;
+    transform: translateY(var(--press-down)) scale(var(--press-scale));
+    box-shadow: var(--shadow-xs);
+    transition: transform var(--motion-short) var(--easing),
+                box-shadow var(--motion-short) var(--easing);
+}
+
+/* Mode and definition buttons */
+.mode-button,
+.definition-button {
+    background: #1f2937;
+    color: #ffffff;
+    border: none;
+    padding: var(--space-lg) var(--space-xl);
+    margin: var(--space-sm);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    width: 100%;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--motion-std) var(--easing), 
+                box-shadow var(--motion-std) var(--easing),
+                background-color var(--motion-std) var(--easing);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+    will-change: transform;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.mode-button:hover,
+.definition-button:hover {
+    background: #374151;
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
 .mode-button:active,
 .definition-button:active {
+    background: #4b5563;
+    color: #ffffff;
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: transform var(--motion-short) var(--easing),
+                box-shadow var(--motion-short) var(--easing);
+}
+
+/* Dark mode support for mode and definition buttons */
+[data-theme="dark"] .mode-button,
+[data-theme="dark"] .definition-button {
+    background: #1f2937;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .mode-button:hover,
+[data-theme="dark"] .definition-button:hover {
+    background: #374151;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transform: translateY(-2px);
+}
+
+[data-theme="dark"] .mode-button:active,
+[data-theme="dark"] .definition-button:active {
+    background: #4b5563;
+    color: #ffffff !important;
+}
+
+/* Clear Filters Button */
+.clear-filters-button {
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    padding: var(--space-sm) var(--space-lg);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-bold);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: transform var(--motion-std) var(--easing), 
+                box-shadow var(--motion-std) var(--easing),
+                background-color var(--motion-std) var(--easing);
+    box-shadow: var(--shadow-xs);
+    will-change: transform;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.clear-filters-button:hover {
+    background: #b91c1c;
+    color: #ffffff;
+    transform: translateY(var(--hover-lift-sm)) scale(var(--hover-scale));
+    box-shadow: var(--shadow-md);
+}
+
+.clear-filters-button:active {
+    background: #991b1b;
+    color: #ffffff;
     transform: translateY(var(--press-down)) scale(var(--press-scale));
     box-shadow: var(--shadow-xs);
     transition: transform var(--motion-short) var(--easing),
@@ -538,16 +642,9 @@ button:focus {
     border: 2px solid #ff8c00;
 }
 
-.mode-button, .definition-button, .player-button {
-    padding: 14px 18px;
-    font-size: 16px;
-}
 
 /* Unified buttons use primary color via individual rules above */
 
-.mode-button:hover, .definition-button:hover, .player-button:hover {
-    background-color: var(--color-primary-hover);
-}
 
 .mode-button:focus, .definition-button:focus, .player-button:focus {
     outline: none;
@@ -1024,12 +1121,6 @@ input:checked + .slider:before {
     margin-bottom: 10px;
 }
 
-.mode-button {
-    width: 100%; /* Ensure buttons span the full width of the column */
-    padding: 10px 0; /* Add padding for better spacing inside the buttons */
-    font-size: 16px; /* Adjust font size for better readability */
-    box-sizing: border-box; /* Include padding and border in the element's total width and height */
-}
 
 .tab-content {
     display: none;
@@ -2175,92 +2266,202 @@ input:checked + .slider:before {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-md);
-    padding: var(--space-xl) var(--space-3xl);
-    border: 3px solid rgba(0, 0, 0, 0.1);
-    border-radius: var(--radius-full);
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
+    gap: var(--space-lg);
+    padding: var(--space-2xl) var(--space-3xl);
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-xl);
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
     font-family: var(--font-family);
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(8px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.95));
+    backdrop-filter: blur(12px);
     color: var(--color-text-primary);
-    min-width: 180px;
+    min-width: 280px;
+    min-height: 80px;
     position: relative;
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-md);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .team-toggle-button:hover {
-    background: rgba(255, 255, 255, 0.9);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 1));
     color: var(--color-text-primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    border-color: rgba(0, 0, 0, 0.15);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-lg);
+    border-color: rgba(0, 0, 0, 0.2);
 }
 
 .team-toggle-button.active {
-    background: var(--team1-primary);
-    color: var(--color-text-inverse);
-    border: 3px solid var(--team1-primary);
-    box-shadow: var(--shadow-md);
+    background: linear-gradient(135deg, var(--team1-primary), var(--team1-secondary));
+    color: white;
+    border: 4px solid var(--team1-primary);
+    box-shadow: 0 8px 32px rgba(var(--team1-primary-rgb), 0.3), var(--shadow-lg);
+    transform: translateY(-2px);
 }
 
 .team-toggle-button.active:hover {
-    background: var(--team1-primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    background: linear-gradient(135deg, var(--team1-primary), var(--team1-secondary));
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 12px 40px rgba(var(--team1-primary-rgb), 0.4), var(--shadow-xl);
     border-color: var(--team1-primary);
 }
 
 /* Team 2 active state */
 #match-log-team-2-toggle.active {
-    background: var(--team2-primary);
-    border: 3px solid var(--team2-primary);
-    box-shadow: var(--shadow-md);
+    background: linear-gradient(135deg, var(--team2-primary), var(--team2-secondary));
+    color: white;
+    border: 4px solid var(--team2-primary);
+    box-shadow: 0 8px 32px rgba(var(--team2-primary-rgb), 0.3), var(--shadow-lg);
+    transform: translateY(-2px);
 }
 
 #match-log-team-2-toggle.active:hover {
-    background: var(--team2-primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    background: linear-gradient(135deg, var(--team2-primary), var(--team2-secondary));
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 12px 40px rgba(var(--team2-primary-rgb), 0.4), var(--shadow-xl);
     border-color: var(--team2-primary);
 }
 
-/* Color chip for active team */
+/* Enhanced color chip for active team */
 .team-toggle-button.active::before {
     content: '';
     position: absolute;
-    right: var(--space-sm);
+    right: var(--space-md);
     top: 50%;
     transform: translateY(-50%);
-    width: 8px;
-    height: 8px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
-    background: var(--team1-primary);
+    background: white;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+    border: 2px solid var(--team1-primary);
 }
 
 #match-log-team-2-toggle.active::before {
-    background: var(--team2-primary);
+    border-color: var(--team2-primary);
+}
+
+/* Team color accent bars */
+.team-toggle-button.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: linear-gradient(180deg, var(--team1-primary), var(--team1-secondary));
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    box-shadow: 0 0 12px rgba(var(--team1-primary-rgb), 0.5);
+}
+
+#match-log-team-2-toggle.active::after {
+    background: linear-gradient(180deg, var(--team2-primary), var(--team2-secondary));
+    box-shadow: 0 0 12px rgba(var(--team2-primary-rgb), 0.5);
+}
+
+/* Opposition toggle specific styles for Team Sheets tab */
+#opposition-toggle.active {
+    background: linear-gradient(135deg, var(--team2-primary), var(--team2-secondary));
+    color: white;
+    border: 4px solid var(--team2-primary);
+    box-shadow: 0 8px 32px rgba(var(--team2-primary-rgb), 0.3), var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+#opposition-toggle.active:hover {
+    background: linear-gradient(135deg, var(--team2-primary), var(--team2-secondary));
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 12px 40px rgba(var(--team2-primary-rgb), 0.4), var(--shadow-xl);
+    border-color: var(--team2-primary);
+}
+
+#opposition-toggle.active::before {
+    border-color: var(--team2-primary);
+}
+
+#opposition-toggle.active::after {
+    background: linear-gradient(180deg, var(--team2-primary), var(--team2-secondary));
+    box-shadow: 0 0 12px rgba(var(--team2-primary-rgb), 0.5);
 }
 
 
 /* Dark mode styles for team toggle buttons */
 [data-theme="dark"] .team-toggle-button {
-    background: rgba(51, 65, 85, 0.8);
-    border: 3px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, rgba(51, 65, 85, 0.9), rgba(30, 41, 59, 0.95));
+    border: 4px solid rgba(255, 255, 255, 0.15);
     color: var(--color-text-primary);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(16px);
 }
 
 [data-theme="dark"] .team-toggle-button:hover {
-    background: rgba(51, 65, 85, 0.9);
+    background: linear-gradient(135deg, rgba(51, 65, 85, 0.95), rgba(30, 41, 59, 1));
     color: var(--color-text-primary);
-    border-color: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: var(--shadow-lg);
+}
+
+[data-theme="dark"] .team-toggle-button.active {
+    background: linear-gradient(135deg, var(--team1-primary), var(--team1-secondary));
+    color: white;
+    border: 4px solid var(--team1-primary);
+    box-shadow: 0 8px 32px rgba(var(--team1-primary-rgb), 0.4), var(--shadow-lg);
     transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+}
+
+[data-theme="dark"] .team-toggle-button.active:hover {
+    background: linear-gradient(135deg, var(--team1-primary), var(--team1-secondary));
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 12px 40px rgba(var(--team1-primary-rgb), 0.5), var(--shadow-xl);
+}
+
+[data-theme="dark"] #match-log-team-2-toggle.active {
+    background: linear-gradient(135deg, var(--team2-primary), var(--team2-secondary));
+    color: white;
+    border: 4px solid var(--team2-primary);
+    box-shadow: 0 8px 32px rgba(var(--team2-primary-rgb), 0.4), var(--shadow-lg);
+}
+
+[data-theme="dark"] #match-log-team-2-toggle.active:hover {
+    background: linear-gradient(135deg, var(--team2-primary), var(--team2-secondary));
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 12px 40px rgba(var(--team2-primary-rgb), 0.5), var(--shadow-xl);
+}
+
+/* Dark mode styles for opposition toggle */
+[data-theme="dark"] #opposition-toggle.active {
+    background: linear-gradient(135deg, var(--team2-primary), var(--team2-secondary));
+    color: white;
+    border: 4px solid var(--team2-primary);
+    box-shadow: 0 8px 32px rgba(var(--team2-primary-rgb), 0.4), var(--shadow-lg);
+}
+
+[data-theme="dark"] #opposition-toggle.active:hover {
+    background: linear-gradient(135deg, var(--team2-primary), var(--team2-secondary));
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 12px 40px rgba(var(--team2-primary-rgb), 0.5), var(--shadow-xl);
+}
+
+/* Ensure consistent white text for all active team toggles in dark mode */
+[data-theme="dark"] .team-toggle-button.active {
+    color: white !important;
+}
+
+[data-theme="dark"] #match-log-team-1-toggle.active {
+    color: white !important;
+}
+
+[data-theme="dark"] #match-log-team-2-toggle.active {
+    color: white !important;
+}
+
+[data-theme="dark"] #opposition-toggle.active {
+    color: white !important;
 }
 
 .toggle-icon {
@@ -3876,10 +4077,18 @@ input:checked + .slider:before {
     }
     
     .action-button {
-        padding: var(--space-xs);
-        font-size: var(--font-size-xs);
-        min-height: 36px;
+        padding: var(--space-sm);
+        font-size: var(--font-size-md);
+        min-height: 48px;
         margin: 1px;
+    }
+    
+    .mode-button,
+    .definition-button {
+        padding: var(--space-md) var(--space-lg);
+        font-size: var(--font-size-md);
+        min-height: 50px;
+        margin: var(--space-xs);
     }
     
     .column-title {
@@ -3894,7 +4103,7 @@ input:checked + .slider:before {
     }
     
     .action-button-container {
-        gap: var(--space-xs);
+        gap: var(--space-sm);
         max-height: calc(100vh - 300px);
         overflow-y: auto;
     }
@@ -4310,9 +4519,11 @@ input:checked + .slider:before {
     }
     
     .team-toggle-button {
-        min-width: 150px;
-        padding: var(--space-md) var(--space-xl);
-        font-size: var(--font-size-lg);
+        min-width: 200px;
+        min-height: 60px;
+        padding: var(--space-lg) var(--space-xl);
+        font-size: var(--font-size-xl);
+        border: 3px solid rgba(0, 0, 0, 0.1);
     }
     
     /* Team actions subheader responsive - maintain horizontal layout */
@@ -4665,29 +4876,31 @@ input:checked + .slider:before {
 /* Dark mode action buttons */
 [data-theme="dark"] .action-button {
     background: #1f2937; /* Darker charcoal for dark mode */
-    color: #ffffff;
+    color: #ffffff !important;
     border: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 [data-theme="dark"] .action-button:hover {
     background: #374151; /* Lighter charcoal on hover */
-    color: #ffffff;
+    color: #ffffff !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     transform: translateY(-1px);
 }
 
 [data-theme="dark"] .action-button:active {
     background: #4b5563;
+    color: #ffffff !important;
 }
 
 /* Match Log Team-Colored Action Buttons */
 .action-button.team-1-active {
-    background: rgba(var(--team1-primary-rgb), 0.06);
+    background: rgba(var(--team1-primary-rgb), 0.12);
     color: var(--color-text-primary);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    border: 2px solid var(--team1-primary);
+    box-shadow: 0 4px 16px rgba(var(--team1-primary-rgb), 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 3px solid var(--team1-primary);
     position: relative;
+    font-weight: var(--font-weight-semibold);
 }
 
 .action-button.team-1-active::before {
@@ -4696,17 +4909,31 @@ input:checked + .slider:before {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 4px;
-    background: var(--team1-secondary);
+    width: 6px;
+    background: linear-gradient(180deg, var(--team1-primary), var(--team1-secondary));
     border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    box-shadow: 0 0 8px rgba(var(--team1-primary-rgb), 0.4);
+}
+
+.action-button.team-1-active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: linear-gradient(180deg, var(--team1-primary), var(--team1-secondary));
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    box-shadow: 0 0 8px rgba(var(--team1-primary-rgb), 0.4);
 }
 
 .action-button.team-2-active {
-    background: rgba(var(--team2-primary-rgb), 0.06);
+    background: rgba(var(--team2-primary-rgb), 0.12);
     color: var(--color-text-primary);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    border: 2px solid var(--team2-primary);
+    box-shadow: 0 4px 16px rgba(var(--team2-primary-rgb), 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 3px solid var(--team2-primary);
     position: relative;
+    font-weight: var(--font-weight-semibold);
 }
 
 .action-button.team-2-active::before {
@@ -4715,14 +4942,40 @@ input:checked + .slider:before {
     left: 0;
     top: 0;
     bottom: 0;
-    width: 4px;
-    background: var(--team2-secondary);
+    width: 6px;
+    background: linear-gradient(180deg, var(--team2-primary), var(--team2-secondary));
     border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    box-shadow: 0 0 8px rgba(var(--team2-primary-rgb), 0.4);
+}
+
+.action-button.team-2-active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: linear-gradient(180deg, var(--team2-primary), var(--team2-secondary));
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    box-shadow: 0 0 8px rgba(var(--team2-primary-rgb), 0.4);
 }
 
 /* Enhanced hover effects for team-colored buttons */
 .action-button.team-1-active:hover {
-    background: rgba(var(--team1-primary-rgb), 0.12);
+    background: rgba(var(--team1-primary-rgb), 0.18);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(var(--team1-primary-rgb), 0.3), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.action-button.team-2-active:hover {
+    background: rgba(var(--team2-primary-rgb), 0.18);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(var(--team2-primary-rgb), 0.3), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Enhanced hover effects for team-colored buttons */
+.action-button.team-1-active:hover {
+    background: rgba(var(--team1-primary-rgb), 0.18);
     color: var(--color-text-primary);
     box-shadow: 0 4px 12px rgba(var(--team1-primary-rgb), 0.2);
     transform: translateY(-1px);
@@ -4740,22 +4993,31 @@ input:checked + .slider:before {
 /* Dark mode team-colored action buttons */
 [data-theme="dark"] .action-button.team-1-active {
     background: rgba(var(--team1-primary-rgb), 0.08);
-    color: var(--color-text-primary);
+    color: white !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     border: 2px solid var(--team1-primary);
 }
 
 [data-theme="dark"] .action-button.team-2-active {
     background: rgba(var(--team2-primary-rgb), 0.08);
-    color: var(--color-text-primary);
+    color: white !important;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     border: 2px solid var(--team2-primary);
+}
+
+/* Light mode team-colored action buttons - ensure black text */
+.action-button.team-1-active {
+    color: black !important;
+}
+
+.action-button.team-2-active {
+    color: black !important;
 }
 
 /* Dark mode hover effects for team-colored buttons */
 [data-theme="dark"] .action-button.team-1-active:hover {
     background: rgba(var(--team1-primary-rgb), 0.15);
-    color: var(--color-text-primary);
+    color: white !important;
     box-shadow: 0 4px 12px rgba(var(--team1-primary-rgb), 0.25);
     transform: translateY(-1px);
     border-color: var(--team1-primary);
@@ -4763,7 +5025,7 @@ input:checked + .slider:before {
 
 [data-theme="dark"] .action-button.team-2-active:hover {
     background: rgba(var(--team2-primary-rgb), 0.15);
-    color: var(--color-text-primary);
+    color: white !important;
     box-shadow: 0 4px 12px rgba(var(--team2-primary-rgb), 0.25);
     transform: translateY(-1px);
     border-color: var(--team2-primary);
@@ -4954,6 +5216,138 @@ input:checked + .slider:before {
     color: var(--color-text-primary);
 }
 
+/* Stats Group Styles */
+.stats-group {
+    margin-bottom: var(--space-lg);
+}
+
+.stats-group-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: var(--space-lg) var(--space-xl);
+    background: var(--color-surface);
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 0;
+    box-shadow: var(--shadow-sm);
+    min-height: 60px;
+    position: relative;
+}
+
+.stats-group-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+    text-align: center;
+    grid-column: 2;
+}
+
+.stats-group-toggle {
+    font-size: 1.2rem;
+    color: var(--color-text-secondary);
+    transition: transform 0.3s ease;
+    user-select: none;
+    grid-column: 3;
+    justify-self: end;
+}
+
+.stats-group-header:hover {
+    background: #f9fafb;
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
+}
+
+.stats-group-toggle.collapsed {
+    transform: rotate(0deg);
+}
+
+/* Turquoise box with blue-green glow for expanded groups */
+.stats-group-header.expanded {
+    background: #14b8a6;
+    color: white;
+    box-shadow: 0 0 25px rgba(20, 184, 166, 0.4), 0 0 50px rgba(20, 184, 166, 0.2), var(--shadow-sm);
+    border-color: rgba(20, 184, 166, 0.5);
+}
+
+.stats-group-header.expanded .stats-group-title {
+    color: white;
+}
+
+.stats-group-header.expanded .stats-group-toggle {
+    color: white;
+}
+
+.stats-group-content {
+    overflow: hidden;
+    transition: max-height 0.4s ease, opacity 0.3s ease, padding 0.3s ease;
+    max-height: 0;
+    opacity: 0;
+    padding: 0 var(--space-lg);
+    background: var(--color-surface);
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.stats-group-content:not(.collapsed) {
+    max-height: 1000px;
+    opacity: 1;
+    padding: var(--space-xl);
+}
+
+/* Stats Row Styles */
+.stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-lg);
+    align-items: center;
+    padding: var(--space-md) 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.stats-row:last-child {
+    border-bottom: none;
+}
+
+.stats-row .stats-column {
+    text-align: center;
+}
+
+.stats-row .stats-column:first-child {
+    text-align: right;
+}
+
+.stats-row .stats-column:last-child {
+    text-align: left;
+}
+
+/* Team Headers */
+.stats-team-headers {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-lg);
+    margin-bottom: var(--space-xl);
+}
+
+.stats-team-pill {
+    background: var(--color-primary);
+    color: white;
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    text-align: center;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.stats-team-pill-center {
+    background: var(--color-text-secondary);
+}
+
 .stats-columns {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
@@ -5074,6 +5468,58 @@ input:checked + .slider:before {
 [data-theme="dark"] .stats-container {
     background: var(--color-bg);
     color: var(--color-text-primary);
+}
+
+/* Dark mode stats groups */
+[data-theme="dark"] .stats-group-header {
+    background: var(--color-surface);
+    border-color: #374151;
+}
+
+[data-theme="dark"] .stats-group-header:hover {
+    background: #374151;
+    border-color: var(--color-primary);
+}
+
+[data-theme="dark"] .stats-group-title {
+    color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .stats-group-toggle {
+    color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .stats-group-content {
+    background: var(--color-surface);
+    border-color: #374151;
+}
+
+[data-theme="dark"] .stats-row {
+    border-bottom-color: #374151;
+}
+
+[data-theme="dark"] .stats-team-pill {
+    background: var(--color-primary);
+}
+
+[data-theme="dark"] .stats-team-pill-center {
+    background: var(--color-text-secondary);
+}
+
+/* Dark mode turquoise box with blue-green glow */
+[data-theme="dark"] .stats-group-header.expanded {
+    background: #0d9488;
+    color: white;
+    box-shadow: 0 0 30px rgba(13, 148, 136, 0.5), 0 0 60px rgba(13, 148, 136, 0.25), var(--shadow-sm);
+    border-color: rgba(13, 148, 136, 0.6);
+}
+
+[data-theme="dark"] .stats-group-header.expanded .stats-group-title {
+    color: white;
+}
+
+[data-theme="dark"] .stats-group-header.expanded .stats-group-toggle {
+    color: white;
 }
 
 /* Dark mode stats title */
