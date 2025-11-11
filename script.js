@@ -111,6 +111,9 @@ let teamCustomizations = {
 let currentEditingTeam = null;
 
 let coordinatesEnabled = false;
+let gridEnabled = false; // GRID mode toggle
+let gridSelectionActive = false; // true when coordinate screen is used for GRID
+let selectedGrid = null; // currently selected GRID id (e.g., GRID12)
 
 let currentCoordinates1 = '';
 let currentCoordinates2 = '';
@@ -162,13 +165,26 @@ document.addEventListener('DOMContentLoaded', function () {
             updateAllActionButtonColors();
         }
     });
+
+    // Initialize settings popup toggles to current state if present
+    syncToggleViews();
+    
+    // Initialize stats subtab navigation
+    initStatsSubtabNavigation();
 });
 
 // Dark Mode Toggle
-function toggleDarkMode() {
-    const darkModeToggle = document.getElementById('toggle-dark-mode');
-    const isDarkMode = darkModeToggle.checked;
-    
+function toggleDarkMode(forcedState) {
+    // Determine target state
+    let isDarkMode = forcedState;
+    if (typeof isDarkMode === 'undefined') {
+        const settingsDark = document.getElementById('settings-toggle-dark-mode');
+        const headerDark = document.getElementById('toggle-dark-mode');
+        if (settingsDark) isDarkMode = settingsDark.checked;
+        else if (headerDark) isDarkMode = headerDark.checked;
+        else isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark' ? false : true; // toggle
+    }
+
     if (isDarkMode) {
         document.documentElement.setAttribute('data-theme', 'dark');
         localStorage.setItem('darkMode', 'true');
@@ -176,7 +192,13 @@ function toggleDarkMode() {
         document.documentElement.setAttribute('data-theme', 'light');
         localStorage.setItem('darkMode', 'false');
     }
-    
+
+    // sync checkboxes
+    const settingsDark = document.getElementById('settings-toggle-dark-mode');
+    const headerDark = document.getElementById('toggle-dark-mode');
+    if (settingsDark) settingsDark.checked = isDarkMode;
+    if (headerDark) headerDark.checked = isDarkMode;
+
     // Update all action button colors when dark mode changes
     updateAllActionButtonColors();
 }
@@ -184,16 +206,653 @@ function toggleDarkMode() {
 // Initialize dark mode on page load
 function initializeDarkMode() {
     const savedTheme = localStorage.getItem('darkMode');
-    const darkModeToggle = document.getElementById('toggle-dark-mode');
-    
-    if (savedTheme === 'true') {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        darkModeToggle.checked = true;
-    } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-        darkModeToggle.checked = false;
-    }
+    const isDark = savedTheme === 'true';
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    // sync both toggles if present
+    const settingsDark = document.getElementById('settings-toggle-dark-mode');
+    const headerDark = document.getElementById('toggle-dark-mode');
+    if (settingsDark) settingsDark.checked = isDark;
+    if (headerDark) headerDark.checked = isDark;
 }
+
+// GRID toggle (mutually exclusive with coordinates)
+function toggleGrid() {
+    const settingsGrid = document.getElementById('settings-toggle-grid');
+    const headerGrid = document.getElementById('toggle-grid');
+    const isChecked = settingsGrid ? settingsGrid.checked : (headerGrid ? headerGrid.checked : false);
+    gridEnabled = !!isChecked;
+    if (gridEnabled) {
+        coordinatesEnabled = false;
+        const coordsToggle = document.getElementById('toggle-coordinates');
+        if (coordsToggle) coordsToggle.checked = false;
+        const settingsCoords = document.getElementById('settings-toggle-coordinates');
+        if (settingsCoords) settingsCoords.checked = false;
+        document.body.classList.add('grid-mode');
+    } else {
+        document.body.classList.remove('grid-mode');
+    }
+    syncToggleViews();
+}
+
+// =========================
+// Central Match Timer
+// =========================
+const TimerStorageKey = 'matchTimerState:v2';
+const TimerPhases = [
+	{ key: 'PREMATCH', label: 'Pre-Match', passive: true },
+	{ key: 'H1', label: '1st Half' },
+	{ key: 'HT', label: 'Half-Time', passive: true },
+	{ key: 'H2', label: '2nd Half' },
+	{ key: 'FT', label: 'Full Time', passive: true },
+	{ key: 'ET1', label: 'Extra Time 1' },
+	{ key: 'ET1_HT', label: 'Halftime ET', passive: true },
+	{ key: 'ET2', label: 'Extra Time 2' },
+	{ key: 'FTET', label: 'Full Time ET', passive: true },
+	{ key: 'FINISHED', label: 'Match Finished', terminal: true }
+];
+
+class TimerController {
+	constructor() {
+		this.state = {
+			phaseIndex: -1,
+			isRunning: false,
+			startEpochMs: null,
+			elapsedMs: 0,
+			pausedAccumMs: 0,
+			lastPauseStartMs: null
+		};
+		this.clockEl = null;
+		this.phaseLabelEl = null;
+		this.phaseBtn = null;
+		this.pauseBtn = null;
+		this.tray = null;
+		this.trayToggle = null;
+		this.trayNextBtn = null;
+		this.rafId = null;
+		this.lastRenderSec = null;
+		this.boundOutsideHandler = null;
+	}
+
+	init() {
+		this.clockEl = document.getElementById('timer-clock');
+		this.phaseLabelEl = document.getElementById('timer-phase-label');
+		this.pauseBtn = document.getElementById('timer-pause-btn');
+		this.tray = document.getElementById('timer-tray');
+		this.trayToggle = document.getElementById('timer-tray-toggle');
+		this.trayNextBtn = document.getElementById('tray-next-phase');
+		if (!this.clockEl || !this.pauseBtn || !this.tray || !this.trayToggle) return;
+
+		this.load();
+		// Default to PREMATCH if no phase yet
+		if (this.state.phaseIndex < 0) {
+			this.state.phaseIndex = TimerPhases.findIndex(p => p.key === 'PREMATCH');
+			this.state.isRunning = false;
+			this.state.elapsedMs = 0;
+			this.state.startEpochMs = null;
+			this.state.pausedAccumMs = 0;
+			this.state.lastPauseStartMs = null;
+		}
+		this.updateUI(true);
+		this.bindEvents();
+		this.startRenderLoop();
+	}
+
+	bindEvents() {
+		this.pauseBtn.addEventListener('click', () => this.onPauseResume());
+		this.trayToggle.addEventListener('click', () => this.toggleTray());
+		document.getElementById('tray-reset')?.addEventListener('click', () => this.openResetPopup());
+		document.getElementById('tray-edit-time')?.addEventListener('click', () => this.openEditTimePopup());
+		document.getElementById('tray-edit-phase')?.addEventListener('click', () => this.openEditPhasePopup());
+		document.getElementById('tray-next-phase')?.addEventListener('click', () => this.triggerNextPhase());
+		document.getElementById('tray-end-match')?.addEventListener('click', () => this.openEndMatchPopup());
+
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape' && this.trayOpen()) this.closeTray();
+		});
+	}
+
+	startRenderLoop() {
+		const loop = () => {
+			this.renderClock();
+			this.rafId = window.requestAnimationFrame(loop);
+		};
+		this.rafId = window.requestAnimationFrame(loop);
+	}
+
+	renderClock() {
+		if (!this.clockEl) return;
+		const elapsed = this.getElapsedMs();
+		const totalSeconds = Math.floor(elapsed / 1000);
+		if (totalSeconds === this.lastRenderSec) return;
+		this.lastRenderSec = totalSeconds;
+		this.clockEl.textContent = this.formatTime(totalSeconds);
+	}
+
+	getElapsedMs() {
+		// If never started
+		if (this.state.startEpochMs === null && this.state.elapsedMs === 0 && !this.state.isRunning) {
+			return 0;
+		}
+		// Running: base + delta
+		if (this.state.isRunning && this.state.startEpochMs) {
+			const now = Date.now();
+			return this.state.elapsedMs + (now - this.state.startEpochMs);
+		}
+		// Paused: show snapshot
+		return this.state.elapsedMs;
+	}
+
+	formatTime(totalSeconds) {
+		const hours = Math.floor(totalSeconds / 3600);
+		const minutes = Math.floor((totalSeconds % 3600) / 60);
+		const seconds = totalSeconds % 60;
+		const mm = String(minutes).padStart(2, '0');
+		const ss = String(seconds).padStart(2, '0');
+		if (hours > 0) {
+			const hh = String(hours).padStart(2, '0');
+			return `${hh}:${mm}:${ss}`;
+		}
+		return `${mm}:${ss}`;
+	}
+
+	onPhaseButton() {
+		const next = this.nextPhaseIndex();
+		const nextLabel = TimerPhases[next]?.label || 'Start 1st Half';
+		if (!window.confirm(`Proceed: ${nextLabel}?`)) return;
+		this.closeTray();
+
+		const currentPhase = TimerPhases[this.state.phaseIndex]?.key || null;
+		this.state.phaseIndex = next;
+		this.state.elapsedMs = 0;
+		this.state.pausedAccumMs = 0;
+		this.state.lastPauseStartMs = null;
+		this.state.startEpochMs = Date.now();
+		this.state.isRunning = !TimerPhases[next]?.passive && !TimerPhases[next]?.terminal;
+
+		this.logEvent('phase_change', { phase: TimerPhases[next]?.label || 'Unknown', from: currentPhase });
+		this.save();
+		this.updateUI(true);
+	}
+
+	nextPhaseIndex() {
+		const idx = this.state.phaseIndex;
+		if (idx < 0) return 0; // Start 1st Half
+		if (idx >= TimerPhases.length - 1) return idx; // Finished
+		return idx + 1;
+	}
+
+	onPauseResume() {
+		const phaseKey = this.currentPhaseKey();
+		// If ball-state phases: PREMATCH, HT, FT, ET1_HT, FTET -> start next run phase
+		if (phaseKey === 'PREMATCH') return this.startPhase('H1', 'First Half Started');
+		if (phaseKey === 'HT') return this.startPhase('H2', 'Second Half Started');
+		if (phaseKey === 'FT') return this.startPhase('ET1', 'First Half Extra Time Started');
+		if (phaseKey === 'ET1_HT') return this.startPhase('ET2', 'Second Half Extra Time Started');
+		if (phaseKey === 'FTET') return; // Finished ET - no start via main button
+
+		if (this.state.isRunning) {
+			// Snapshot elapsed time at pause for stable display
+			const nowElapsed = this.getElapsedMs();
+			this.state.elapsedMs = Math.max(0, nowElapsed);
+			this.state.startEpochMs = null;
+			this.state.pausedAccumMs = 0;
+			this.state.lastPauseStartMs = null;
+			this.state.isRunning = false;
+			this.logEvent('pause', {});
+			this.save();
+			this.updateUI(true);
+		} else {
+			// Resume from snapshot
+			this.state.startEpochMs = Date.now();
+			this.state.pausedAccumMs = 0;
+			this.state.lastPauseStartMs = null;
+			this.state.isRunning = true;
+			this.logEvent('resume', {});
+			this.save();
+			this.updateUI(true);
+		}
+	}
+
+	currentPhaseKey() {
+		if (this.state.phaseIndex < 0) return 'PREMATCH';
+		return TimerPhases[this.state.phaseIndex]?.key || 'PREMATCH';
+	}
+
+	setPhase(key, running = false) {
+		const index = TimerPhases.findIndex(p => p.key === key);
+		if (index === -1) return;
+		this.state.phaseIndex = index;
+		this.state.isRunning = running;
+		this.state.elapsedMs = 0;
+		this.state.pausedAccumMs = 0;
+		this.state.lastPauseStartMs = null;
+		this.state.startEpochMs = running ? Date.now() : null;
+		this.save();
+		this.updateUI(true);
+	}
+
+	startPhase(key, toastMsg) {
+		this.setPhase(key, true);
+		this.logEvent('start', { phase: TimerPhases[this.state.phaseIndex]?.label });
+		TimerController.showToast(toastMsg);
+	}
+
+	endToPhase(key, toastMsg) {
+		// Move to a non-running state and reset
+		this.setPhase(key, false);
+		this.logEvent('phase_end', { to: TimerPhases[this.state.phaseIndex]?.label });
+		TimerController.showToast(toastMsg);
+	}
+
+	triggerNextPhase() {
+		const phaseKey = this.currentPhaseKey();
+		switch (phaseKey) {
+			case 'PREMATCH':
+				this.startPhase('H1', 'First Half Started');
+				break;
+			case 'H1':
+				this.endToPhase('HT', 'First Half Ended');
+				break;
+			case 'HT':
+				this.startPhase('H2', 'Second Half Started');
+				break;
+			case 'H2':
+				this.endToPhase('FT', 'Second Half Ended');
+				break;
+			case 'FT':
+				this.startPhase('ET1', 'First Half Extra Time Started');
+				break;
+			case 'ET1':
+				this.endToPhase('ET1_HT', 'First Half Extra Time Ended');
+				break;
+			case 'ET1_HT':
+				this.startPhase('ET2', 'Second Half Extra Time Started');
+				break;
+			case 'ET2':
+				this.endToPhase('FTET', 'Second Half ET Ended');
+				break;
+			case 'FTET':
+			case 'FINISHED':
+				// no-op
+				break;
+		}
+		this.closeTray();
+	}
+
+	confirmReset() {
+		this.state.elapsedMs = 0;
+		this.state.startEpochMs = Date.now();
+		this.state.pausedAccumMs = 0;
+		this.state.lastPauseStartMs = null;
+		this.logEvent('reset', {});
+		this.save();
+		this.updateUI();
+		this.closeTray();
+	}
+
+	confirmFinish() {
+		this.state.phaseIndex = TimerPhases.findIndex(p => p.key === 'FINISHED');
+		this.state.isRunning = false;
+		this.logEvent('finish', {});
+		this.save();
+		this.updateUI();
+		this.closeTray();
+	}
+
+	openResetPopup() {
+		const popup = document.getElementById('timer-reset-popup');
+		if (!popup) return;
+		const confirmBtn = document.getElementById('timer-reset-confirm');
+		if (confirmBtn) {
+			confirmBtn.onclick = () => {
+				this.confirmReset();
+				PopupAnimator.hidePopup(popup, 'standard');
+			};
+		}
+		PopupAnimator.showPopup(popup, 'standard');
+	}
+
+	openEditTimePopup() {
+		const popup = document.getElementById('timer-edit-time-popup');
+		if (!popup) return;
+		const input = document.getElementById('timer-edit-time-input');
+		if (input) {
+			// Pre-fill with current time
+			const seconds = Math.floor(this.getElapsedMs() / 1000);
+			input.value = this.formatTime(seconds);
+		}
+		const confirmBtn = document.getElementById('timer-edit-time-confirm');
+		if (confirmBtn) {
+			confirmBtn.onclick = () => {
+				const value = (document.getElementById('timer-edit-time-input')?.value || '').trim();
+				if (!value) {
+					PopupAnimator.hidePopup(popup, 'standard');
+					return;
+				}
+				const parts = value.split(':').map(v => parseInt(v, 10)).filter(n => !isNaN(n));
+				let seconds = 0;
+				if (parts.length === 2) {
+					seconds = parts[0] * 60 + parts[1];
+				} else if (parts.length === 3) {
+					seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+				} else {
+					PopupAnimator.hidePopup(popup, 'standard');
+					return;
+				}
+				this.state.elapsedMs = seconds * 1000;
+				this.state.startEpochMs = Date.now();
+				this.state.pausedAccumMs = 0;
+				this.state.lastPauseStartMs = null;
+				this.logEvent('adjust', { to: value });
+				this.save();
+				this.updateUI(true);
+				PopupAnimator.hidePopup(popup, 'standard');
+				this.closeTray();
+			};
+		}
+		PopupAnimator.showPopup(popup, 'standard');
+	}
+
+	openEndMatchPopup() {
+		const popup = document.getElementById('timer-end-match-popup');
+		if (!popup) return;
+		const confirmBtn = document.getElementById('timer-end-match-confirm');
+		if (confirmBtn) {
+			confirmBtn.onclick = () => {
+				this.confirmFinish();
+				PopupAnimator.hidePopup(popup, 'standard');
+			};
+		}
+		PopupAnimator.showPopup(popup, 'standard');
+	}
+
+	openEditPhasePopup() {
+		const popup = document.getElementById('timer-edit-phase-popup');
+		if (!popup) return;
+		// Attach click handlers to each phase button
+		popup.querySelectorAll('.popup-menu-button[data-phase-key]').forEach(btn => {
+			btn.onclick = () => {
+				const key = btn.getAttribute('data-phase-key');
+				this.applyPhaseChangeByKey(key);
+				PopupAnimator.hidePopup(popup, 'standard');
+				this.closeTray();
+			};
+		});
+		PopupAnimator.showPopup(popup, 'standard');
+	}
+
+	applyPhaseChangeByKey(key) {
+		const index = TimerPhases.findIndex(p => p.key === key);
+		if (index === -1) return;
+		this.state.phaseIndex = index;
+		// Pause and reset to 00:00
+		this.state.isRunning = false;
+		this.state.elapsedMs = 0;
+		this.state.pausedAccumMs = 0;
+		this.state.lastPauseStartMs = null;
+		this.state.startEpochMs = null;
+		this.logEvent('phase_set', { phase: TimerPhases[index]?.label || key });
+		this.save();
+		this.updateUI(true);
+	}
+
+	addMarker() {
+		this.logEvent('marker', {});
+		this.closeTray();
+	}
+
+	trayOpen() {
+		return this.tray.classList.contains('open');
+	}
+
+	toggleTray() {
+		if (this.trayOpen()) this.closeTray();
+		else this.openTray();
+	}
+
+	openTray() {
+		this.tray.classList.add('open');
+		this.tray.setAttribute('aria-hidden', 'false');
+		this.trayToggle.setAttribute('aria-expanded', 'true');
+		this.trapFocus(true);
+		// outside click close (anywhere not inside tray or on toggle)
+		this.boundOutsideHandler = (e) => {
+			const clickedInsideTray = this.tray.contains(e.target);
+			const clickedToggle = e.target === this.trayToggle || this.trayToggle.contains?.(e.target);
+			if (!clickedInsideTray && !clickedToggle) {
+				this.closeTray();
+			}
+		};
+		setTimeout(() => document.addEventListener('click', this.boundOutsideHandler, { once: true }), 0);
+	}
+
+	closeTray() {
+		this.tray.classList.remove('open');
+		this.tray.setAttribute('aria-hidden', 'true');
+		this.trayToggle.setAttribute('aria-expanded', 'false');
+		this.trapFocus(false);
+		this.trayToggle.focus();
+	}
+
+	trapFocus(enable) {
+		const focusable = this.tray.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+		if (!enable) {
+			focusable.forEach(el => el.removeAttribute('data-trap'));
+			return;
+		}
+		const list = Array.from(focusable);
+		if (list.length === 0) return;
+		this.tray.querySelector('.timer-tray-inner')?.setAttribute('tabindex', '-1');
+		this.tray.querySelector('.timer-tray-inner')?.focus();
+		const first = list[0];
+		const last = list[list.length - 1];
+		const onKeyDown = (e) => {
+			if (e.key !== 'Tab') return;
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
+			}
+		};
+		this.tray.addEventListener('keydown', onKeyDown, { once: true });
+	}
+
+	updateUI(force = false) {
+		const label = this.currentPhaseLabel();
+		if (this.phaseLabelEl) {
+			this.phaseLabelEl.textContent = label || 'Ready';
+			this.phaseLabelEl.setAttribute('aria-hidden', label ? 'false' : 'true');
+		}
+		if (this.pauseBtn) {
+			const phaseKey = this.currentPhaseKey();
+			this.pauseBtn.style.display = 'inline-block';
+			this.pauseBtn.innerHTML = '';
+			if (phaseKey === 'PREMATCH' || phaseKey === 'HT' || phaseKey === 'FT' || phaseKey === 'ET1_HT' || phaseKey === 'FTET') {
+				this.pauseBtn.setAttribute('aria-label', 'Start phase');
+				this.pauseBtn.appendChild(TimerController.buildGaelicBallIcon());
+				this.pauseBtn.classList.remove('running');
+				this.pauseBtn.classList.add('paused');
+			} else {
+				// Running/resumable phases
+				const actionLabel = this.state.isRunning ? 'Pause timer' : 'Resume timer';
+				this.pauseBtn.setAttribute('aria-label', actionLabel);
+				this.pauseBtn.appendChild(this.state.isRunning ? TimerController.buildPauseIcon() : TimerController.buildPlayWithBarIcon());
+				this.pauseBtn.classList.toggle('running', this.state.isRunning);
+				this.pauseBtn.classList.toggle('paused', !this.state.isRunning);
+			}
+		}
+		// Update tray next-phase button text dynamically
+		if (this.trayNextBtn) {
+			const phaseKey = this.currentPhaseKey();
+			let text = 'Next';
+			switch (phaseKey) {
+				case 'PREMATCH': text = 'Begin First Half'; break;
+				case 'H1': text = 'Halftime'; break;
+				case 'HT': text = 'Begin Second Half'; break;
+				case 'H2': text = 'Full Time'; break;
+				case 'FT': text = 'Begin First Half ET'; break;
+				case 'ET1': text = 'Halftime ET'; break;
+				case 'ET1_HT': text = 'Begin Second Half ET'; break;
+				case 'ET2': text = 'Full Time ET'; break;
+				case 'FTET': text = 'Match Finished'; break;
+				default: text = 'Next'; break;
+			}
+			this.trayNextBtn.textContent = text;
+		}
+		if (force) this.renderClock();
+	}
+
+	currentPhaseLabel() {
+		if (this.state.phaseIndex < 0) return '';
+		return TimerPhases[this.state.phaseIndex]?.label || '';
+	}
+
+	save() {
+		try {
+			localStorage.setItem(TimerStorageKey, JSON.stringify(this.state));
+		} catch {}
+	}
+
+	load() {
+		try {
+			const raw = localStorage.getItem(TimerStorageKey);
+			if (!raw) return;
+			const parsed = JSON.parse(raw);
+			this.state = Object.assign(this.state, parsed || {});
+		} catch {}
+	}
+
+	logEvent(type, extra) {
+		try {
+			const elapsed = Math.floor(this.getElapsedMs() / 1000);
+			const entry = {
+				type: `timer:${type}`,
+				phase: this.currentPhaseLabel(),
+				elapsed: this.formatTime(elapsed),
+				utc: new Date().toISOString(),
+				...extra
+			};
+			if (Array.isArray(window.actionsLog)) {
+				window.actionsLog.push({ action: 'Timer', details: entry, timestamp: Date.now() });
+				if (typeof updateSummary === 'function') updateSummary();
+			}
+		} catch {}
+	}
+}
+
+// Icon builders
+TimerController.buildPauseIcon = function() {
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('viewBox', '0 0 24 24');
+	svg.setAttribute('aria-hidden', 'true');
+	const left = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+	left.setAttribute('x', '6');
+	left.setAttribute('y', '4');
+	left.setAttribute('width', '4');
+	left.setAttribute('height', '16');
+	const right = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+	right.setAttribute('x', '14');
+	right.setAttribute('y', '4');
+	right.setAttribute('width', '4');
+	right.setAttribute('height', '16');
+	svg.appendChild(left);
+	svg.appendChild(right);
+	return svg;
+};
+
+// Gaelic football icon (bold stitched ball)
+TimerController.buildGaelicBallIcon = function() {
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('viewBox', '0 0 24 24');
+	svg.setAttribute('aria-hidden', 'true');
+	// Outer circle of ball
+	const outer = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+	outer.setAttribute('cx', '12');
+	outer.setAttribute('cy', '12');
+	outer.setAttribute('r', '9.5');
+	outer.setAttribute('fill', 'none');
+	outer.setAttribute('stroke', 'currentColor');
+	outer.setAttribute('stroke-width', '2');
+
+	// Horizontal seam
+	const seamH = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+	seamH.setAttribute('d', 'M3.5 12c2.7 1.9 5.7 2.9 8.5 2.9 2.8 0 5.8-1 8.5-2.9');
+	seamH.setAttribute('fill', 'none');
+	seamH.setAttribute('stroke', 'currentColor');
+	seamH.setAttribute('stroke-width', '1.6');
+	seamH.setAttribute('stroke-linecap', 'round');
+
+	// Vertical seam
+	const seamV = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+	seamV.setAttribute('d', 'M12 3.5c1.9 2.7 2.9 5.7 2.9 8.5s-1 5.8-2.9 8.5');
+	seamV.setAttribute('fill', 'none');
+	seamV.setAttribute('stroke', 'currentColor');
+	seamV.setAttribute('stroke-width', '1.6');
+	seamV.setAttribute('stroke-linecap', 'round');
+
+	// Diagonal seams to mimic stitched panels
+	const seamDiagLeft = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+	seamDiagLeft.setAttribute('d', 'M6.4 5.7c1.9 1.6 3.2 3.6 3.6 6.3-.4 2.7-1.7 4.7-3.6 6.3');
+	seamDiagLeft.setAttribute('fill', 'none');
+	seamDiagLeft.setAttribute('stroke', 'currentColor');
+	seamDiagLeft.setAttribute('stroke-width', '1.3');
+	seamDiagLeft.setAttribute('stroke-linecap', 'round');
+
+	const seamDiagRight = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+	seamDiagRight.setAttribute('d', 'M17.6 5.7c-1.9 1.6-3.2 3.6-3.6 6.3.4 2.7 1.7 4.7 3.6 6.3');
+	seamDiagRight.setAttribute('fill', 'none');
+	seamDiagRight.setAttribute('stroke', 'currentColor');
+	seamDiagRight.setAttribute('stroke-width', '1.3');
+	seamDiagRight.setAttribute('stroke-linecap', 'round');
+
+	svg.appendChild(outer);
+	svg.appendChild(seamH);
+	svg.appendChild(seamV);
+	svg.appendChild(seamDiagLeft);
+	svg.appendChild(seamDiagRight);
+	return svg;
+};
+
+// Toast helper using existing fade-message element
+TimerController.showToast = function(message) {
+	const el = document.getElementById('coordinate-warning');
+	if (!el) return;
+	el.textContent = message;
+	el.classList.add('show');
+	setTimeout(() => {
+		el.classList.remove('show');
+	}, 1500);
+};
+
+// Play icon with a leading bar at the left (same height as triangle)
+TimerController.buildPlayWithBarIcon = function() {
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('viewBox', '0 0 24 24');
+	svg.setAttribute('aria-hidden', 'true');
+	// Leading bar
+	const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+	bar.setAttribute('x', '3');
+	bar.setAttribute('y', '4');
+	bar.setAttribute('width', '3');
+	bar.setAttribute('height', '16');
+	// Triangle play
+	const tri = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+	// Triangle points roughly centered, rightward pointing
+	tri.setAttribute('points', '8,4 20,12 8,20');
+	svg.appendChild(bar);
+	svg.appendChild(tri);
+	return svg;
+};
+
+// Initialize timer once DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+	try {
+		window.__timerController = new TimerController();
+		window.__timerController.init();
+	} catch {}
+});
 
 document.addEventListener('click', (e) => {
     const popup = document.getElementById('row-options-popup');
@@ -394,7 +1053,9 @@ function selectDefinition(definition) {
             // Team 2 lost the kickout (Team 1 won) - go to Team 1 player selection
             switchScreen('player-buttons');
         }
-    } else if (coordinatesEnabled && (currentAction === '2-Point - Score' || currentAction === 'Ball - Won' || currentAction === 'Ball - Lost' || currentAction === 'Kickout - Against' || currentAction === '2-Point - Against' || currentAction === 'Miss - Against')) {
+    } else if ((gridEnabled && GRID_ACTIONS.has(currentAction)) || (coordinatesEnabled && (currentAction === '2-Point - Score' || currentAction === 'Ball - Won' || currentAction === 'Ball - Lost' || currentAction === 'Kickout - Against' || currentAction === '2-Point - Against' || currentAction === 'Miss - Against'))) {
+        gridSelectionActive = !!(gridEnabled && GRID_ACTIONS.has(currentAction));
+        updateCoordinateScreenMode();
         switchScreen('coordinate-screen'); // Go to coordinate screen for specified actions after definition screen
     } else {
         // Check for Team 2 context
@@ -429,7 +1090,9 @@ function selectPlayer(player) {
                 switchScreen('player-buttons-second');
             }
         }
-    } else if (coordinatesEnabled && (currentAction === 'Point - Score' || currentAction === '2-Point - Score' || currentAction === 'Goal - Score' || currentAction === 'Point - Score (Team 2)' || currentAction === '2-Point - Score (Team 2)' || currentAction === 'Goal - Score (Team 2)' || currentAction === 'Point - Miss' || currentAction === 'Goal - Miss' || currentAction === 'Our Kickout' || currentAction === 'Opp. Kickout' || currentAction === 'Point - Against' || currentAction === 'Goal - Against' || currentAction === 'Miss - Against' || currentAction === 'Carry' || currentAction === 'Free Won' || currentAction === 'Ball Lost (Forced)' || currentAction === 'Ball Lost (Unforced)' || currentAction === 'Ball Won (Forced)' || currentAction === 'Ball Won (Unforced)' || currentAction === 'Foul Committed')) {
+    } else if ((gridEnabled && GRID_ACTIONS.has(currentAction)) || (coordinatesEnabled && (currentAction === 'Point - Score' || currentAction === '2-Point - Score' || currentAction === 'Goal - Score' || currentAction === 'Point - Score (Team 2)' || currentAction === '2-Point - Score (Team 2)' || currentAction === 'Goal - Score (Team 2)' || currentAction === 'Point - Miss' || currentAction === 'Goal - Miss' || currentAction === 'Our Kickout' || currentAction === 'Opp. Kickout' || currentAction === 'Point - Against' || currentAction === 'Goal - Against' || currentAction === 'Miss - Against' || currentAction === 'Carry' || currentAction === 'Free Won' || currentAction === 'Ball Lost (Forced)' || currentAction === 'Ball Lost (Unforced)' || currentAction === 'Ball Won (Forced)' || currentAction === 'Ball Won (Unforced)' || currentAction === 'Foul Committed'))) {
+        gridSelectionActive = !!(gridEnabled && GRID_ACTIONS.has(currentAction));
+        updateCoordinateScreenMode();
         switchScreen('coordinate-screen'); // Go to coordinate screen after player selection
     } else {
         logAction();
@@ -441,7 +1104,9 @@ function selectSecondPlayer(player) {
     if (currentAction === '45 Entry') {
         // 45 Entry doesn't use coordinates, log action directly
         logAction();
-    } else if (coordinatesEnabled && (currentAction === 'Handpass' || currentAction === 'Kickpass')) {
+    } else if ((gridEnabled && GRID_ACTIONS.has(currentAction)) || (coordinatesEnabled && (currentAction === 'Handpass' || currentAction === 'Kickpass'))) {
+        gridSelectionActive = !!(gridEnabled && GRID_ACTIONS.has(currentAction));
+        updateCoordinateScreenMode();
         switchScreen('coordinate-screen'); // Go to coordinate screen after second player selection
     } else {
         logAction();
@@ -678,23 +1343,50 @@ function returnToModeScreen() {
 }
 
 function switchScreen(screenId) {
-    // Check if we're in Match Log context and trying to return to action-buttons
-    if (window.matchLogContext && screenId === 'action-buttons') {
-        screenId = 'match-log-action-buttons';
+    // Preserve requested id for logging
+    let desiredScreenId = screenId;
+
+    // If in Match Log context and routing to generic action screen, redirect
+    if (window.matchLogContext && desiredScreenId === 'action-buttons') {
+        desiredScreenId = 'match-log-action-buttons';
         window.matchLogContext = false; // Reset the context
     }
-    
+
+    // Resolve target screen or a safe fallback BEFORE altering current screens
+    let targetScreen = document.getElementById(desiredScreenId);
+
+    if (!targetScreen) {
+        // Try context-aware fallback to prevent blank UI
+        const matchLogFallback = document.getElementById('match-log-action-buttons');
+        const actionButtonsFallback = document.getElementById('action-buttons');
+
+        if (window.matchLogContext && matchLogFallback) {
+            targetScreen = matchLogFallback;
+            desiredScreenId = 'match-log-action-buttons';
+            window.matchLogContext = false;
+        } else if (matchLogFallback && (desiredScreenId || '').includes('match-log')) {
+            targetScreen = matchLogFallback;
+            desiredScreenId = 'match-log-action-buttons';
+        } else if (actionButtonsFallback) {
+            targetScreen = actionButtonsFallback;
+            desiredScreenId = 'action-buttons';
+        }
+    }
+
+    if (!targetScreen) {
+        // If still not resolved, keep current screen as-is to avoid a blank view
+        console.error(`Screen with ID ${screenId} not found. Keeping current screen.`);
+        return;
+    }
+
+    // Now we have a valid target; perform the switch
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
     });
-    const targetScreen = document.getElementById(screenId);
-    if (targetScreen) {
-        targetScreen.classList.add('active');
-        if (screenId === 'coordinate-screen') {
-            drawPitch(); // Ensure the pitch is drawn when entering the coordinate screen
-        }
-    } else {
-        console.error(`Screen with ID ${screenId} not found.`);
+    targetScreen.classList.add('active');
+
+    if (desiredScreenId === 'coordinate-screen') {
+        drawPitch(); // Ensure the pitch is drawn when entering the coordinate screen
     }
 }
 
@@ -787,15 +1479,24 @@ function updateSummary() {
         player2Cell.textContent = entry.player2;
 
         if (entry.coordinates1) {
-            const [x1, y1] = entry.coordinates1.slice(1, -1).split(', ');
-            x1Cell.textContent = x1;
-            y1Cell.textContent = y1;
+            if (typeof entry.coordinates1 === 'string' && entry.coordinates1.startsWith('GRID')) {
+                x1Cell.textContent = entry.coordinates1;
+                y1Cell.textContent = entry.coordinates1;
+            } else {
+                const [x1, y1] = entry.coordinates1.slice(1, -1).split(', ');
+                x1Cell.textContent = x1;
+                y1Cell.textContent = y1;
+            }
         }
 
         if (entry.coordinates2) {
-            const [x2, y2] = entry.coordinates2.slice(1, -1).split(', ');
-            x2Cell.textContent = x2;
-            y2Cell.textContent = y2;
+            if (typeof entry.coordinates2 === 'string' && entry.coordinates2.startsWith('GRID')) {
+                // For GRID mode, X2/Y2 remain blank to reflect single-area selection
+            } else {
+                const [x2, y2] = entry.coordinates2.slice(1, -1).split(', ');
+                x2Cell.textContent = x2;
+                y2Cell.textContent = y2;
+            }
         }
 
         row.appendChild(actionCell);
@@ -868,22 +1569,31 @@ function exportDataToCSV() {
         
         // Add data rows
         actionsLog.forEach(entry => {
-            // Extract coordinates
+            // Extract coordinates or GRID
             let x1 = '', y1 = '', x2 = '', y2 = '';
-            
+
             if (entry.coordinates1) {
-                const coords1 = entry.coordinates1.slice(1, -1).split(', ');
-                if (coords1.length >= 2) {
-                    x1 = coords1[0];
-                    y1 = coords1[1];
+                if (typeof entry.coordinates1 === 'string' && entry.coordinates1.startsWith('GRID')) {
+                    x1 = entry.coordinates1;
+                    y1 = entry.coordinates1;
+                } else {
+                    const coords1 = entry.coordinates1.slice(1, -1).split(', ');
+                    if (coords1.length >= 2) {
+                        x1 = coords1[0];
+                        y1 = coords1[1];
+                    }
                 }
             }
-            
+
             if (entry.coordinates2) {
-                const coords2 = entry.coordinates2.slice(1, -1).split(', ');
-                if (coords2.length >= 2) {
-                    x2 = coords2[0];
-                    y2 = coords2[1];
+                if (typeof entry.coordinates2 === 'string' && entry.coordinates2.startsWith('GRID')) {
+                    // For GRID mode, export X2/Y2 empty (single-area selection)
+                } else {
+                    const coords2 = entry.coordinates2.slice(1, -1).split(', ');
+                    if (coords2.length >= 2) {
+                        x2 = coords2[0];
+                        y2 = coords2[1];
+                    }
                 }
             }
             
@@ -1307,7 +2017,10 @@ let currentRowIndex = null;
 function showRowOptionsMenu(rowElement, index) {
     currentRowIndex = index;
     const popup = document.getElementById('row-options-popup');
-    PopupAnimator.showPopup(popup, 'menu');
+	if (!popup) return;
+	// Position popup just to the right of the clicked element
+	positionRowOptionsPopup(popup, rowElement);
+	PopupAnimator.showPopup(popup, 'menu');
 }
 
 function hideRowOptionsMenu() {
@@ -1527,17 +2240,32 @@ class PopupAnimator {
         if (!element) return;
         
         // Position popup (only if not already positioned)
-        if (!element.style.position || element.style.position !== 'fixed') {
-            element.style.position = 'fixed';
-            element.style.top = '50%';
-            element.style.left = '50%';
-            element.style.transform = 'translate(-50%, -50%)';
-            element.style.zIndex = '10000';
-        }
+		if (type !== 'menu') {
+			if (!element.style.position || element.style.position !== 'fixed') {
+				element.style.position = 'fixed';
+				element.style.top = '50%';
+				element.style.left = '50%';
+				element.style.transform = 'translate(-50%, -50%)';
+				element.style.zIndex = '10000';
+			}
+		} else {
+			// For context/row menus, do not override CSS positioning (avoid jump)
+			element.style.zIndex = element.style.zIndex || '10000';
+		}
         
-        // Simply show the popup
+        // Show the popup
         element.style.display = 'block';
         element.style.opacity = '1';
+
+		// Restart CSS animation (e.g., popupSlideIn) on each open for inner content
+		const animTarget = element.querySelector('.sleek-popup') || element.querySelector('.popup-content') || element;
+		const prevAnimation = animTarget.style.animation;
+		animTarget.style.animation = 'none';
+        // Force reflow to reset animation
+        // eslint-disable-next-line no-unused-expressions
+		animTarget.offsetHeight;
+		// Ensure an animation value exists; fallback to centered scale-in
+		animTarget.style.animation = prevAnimation || 'popupScaleIn 0.24s cubic-bezier(0.4, 0, 0.2, 1)';
     }
     
     static hidePopup(element, type = 'standard', callback = null) {
@@ -1615,7 +2343,7 @@ function closeNotePopup() {
     noteRowIndex = null;
     viewEditNoteIndex = null;
     editingMode = false;
-    document.getElementById('note-popup').style.display = 'none';
+    PopupAnimator.hidePopup(document.getElementById('note-popup'), 'standard');
 }
 
 function updateCounters() {
@@ -1684,6 +2412,11 @@ function resetSelection() {
 }
 
 function openTab(tabName) {
+    // Close widget tray if open when switching tabs
+    if (widgetTrayOpen) {
+        closeWidgetTray();
+    }
+
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
     });
@@ -1700,6 +2433,133 @@ function openTab(tabName) {
     } else if (tabName === 'stats-tab') {
         // Update stats when the stats tab is opened
         updateStatsTab();
+        // Ensure TEAMS subtab is active by default
+        switchStatsSubtab('teams');
+    }
+}
+
+// Stats Subtab Management
+let currentStatsSubtab = 'teams';
+let widgetTrayOpen = false;
+let widgetTrayOutsideHandler = null;
+
+function switchStatsSubtab(subtabName) {
+    // Close widget tray if open
+    if (widgetTrayOpen) {
+        closeWidgetTray();
+    }
+
+    // Update active button
+    document.querySelectorAll('.stats-subtab-btn').forEach(btn => {
+        const isActive = btn.getAttribute('data-subtab') === subtabName;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive);
+        btn.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+
+    // Update active content
+    document.querySelectorAll('.stats-subtab-content').forEach(content => {
+        const isActive = content.id === `stats-subtab-${subtabName}`;
+        content.classList.toggle('active', isActive);
+        content.setAttribute('aria-hidden', !isActive);
+    });
+
+    currentStatsSubtab = subtabName;
+
+    // Update stats if switching to TEAMS
+    if (subtabName === 'teams') {
+        updateStatsTab();
+    }
+}
+
+// Widget Tray Management
+function openWidgetTray(context) {
+    const tray = document.getElementById('widget-tray');
+    if (!tray) return;
+
+    // Only allow opening from MATCH or PLAYERS subtabs
+    if (currentStatsSubtab !== 'match' && currentStatsSubtab !== 'players') {
+        return;
+    }
+
+    widgetTrayOpen = true;
+    tray.setAttribute('aria-hidden', 'false');
+    
+    // Prevent body scroll when tray is open
+    document.body.style.overflow = 'hidden';
+
+    // Add outside click handler (with delay to prevent immediate closure)
+    setTimeout(() => {
+        widgetTrayOutsideHandler = (e) => {
+            // Don't close if clicking inside the tray or the add widget button
+            if (!tray.contains(e.target) && !e.target.closest('.stats-add-widget-btn')) {
+                closeWidgetTray();
+            }
+        };
+        // Use capture phase to ensure we catch the event before it bubbles
+        // Delay slightly to prevent the opening click from immediately closing
+        setTimeout(() => {
+            document.addEventListener('click', widgetTrayOutsideHandler, { capture: true });
+        }, 100);
+    }, 0);
+
+    // ESC key handler
+    const escHandler = (e) => {
+        if (e.key === 'Escape' && widgetTrayOpen) {
+            closeWidgetTray();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler, { once: true });
+}
+
+function closeWidgetTray() {
+    const tray = document.getElementById('widget-tray');
+    if (!tray) return;
+
+    widgetTrayOpen = false;
+    tray.setAttribute('aria-hidden', 'true');
+    
+    // Remove outside click handler if it exists
+    if (widgetTrayOutsideHandler) {
+        document.removeEventListener('click', widgetTrayOutsideHandler, { capture: true });
+        widgetTrayOutsideHandler = null;
+    }
+    
+    // Restore body scroll
+    document.body.style.overflow = '';
+}
+
+// Initialize stats subtab navigation
+function initStatsSubtabNavigation() {
+    const subtabButtons = document.querySelectorAll('.stats-subtab-btn');
+    
+    subtabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const subtab = btn.getAttribute('data-subtab');
+            switchStatsSubtab(subtab);
+        });
+
+        // Keyboard navigation (arrow keys)
+        btn.addEventListener('keydown', (e) => {
+            const buttons = Array.from(subtabButtons);
+            const currentIndex = buttons.indexOf(btn);
+            
+            if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                e.preventDefault();
+                buttons[currentIndex - 1].focus();
+                switchStatsSubtab(buttons[currentIndex - 1].getAttribute('data-subtab'));
+            } else if (e.key === 'ArrowRight' && currentIndex < buttons.length - 1) {
+                e.preventDefault();
+                buttons[currentIndex + 1].focus();
+                switchStatsSubtab(buttons[currentIndex + 1].getAttribute('data-subtab'));
+            }
+        });
+    });
+
+    // Ensure TEAMS is default on first load
+    if (document.getElementById('stats-tab')?.classList.contains('active')) {
+        switchStatsSubtab('teams');
     }
 }
 
@@ -1992,6 +2852,21 @@ canvas.addEventListener('click', (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / canvas.width) * 80;
     const y = 140 - ((e.clientY - rect.top) / canvas.height) * 140;
+    
+    if (gridSelectionActive) {
+        // GRID mode: compute grid area and highlight
+        const gridId = getGridFromPoint(x, y);
+        if (gridId) {
+            selectedGrid = gridId;
+            drawPitch();
+            drawGridHighlight(gridId);
+            const disp1 = document.getElementById('coordinate-display-1');
+            const disp2 = document.getElementById('coordinate-display-2');
+            if (disp1) disp1.textContent = `Selected: ${gridId}`;
+            if (disp2) disp2.style.display = 'none';
+        }
+        return;
+    }
 
     // 💡 Restrict 2-Point - Score to valid locations
     if (currentAction === '2-Point - Score' && !isValid2PointLocation(x, y)) {
@@ -2058,8 +2933,281 @@ function showCoordinateWarning(message) {
     }, 1000); // 1 second
 }
 
+// Update coordinate screen UI for grid vs coordinates
+function updateCoordinateScreenMode() {
+    try {
+        const confirmBtn = document.getElementById('confirmCoordinatesButton');
+        const disp1 = document.getElementById('coordinate-display-1');
+        const disp2 = document.getElementById('coordinate-display-2');
+        if (gridSelectionActive) {
+            if (confirmBtn) confirmBtn.textContent = 'Confirm Area';
+            if (disp1) disp1.textContent = 'Select a grid area';
+            if (disp2) disp2.style.display = 'none';
+            drawPitch(); // clear markers
+            selectedGrid = null;
+        } else {
+            if (confirmBtn) confirmBtn.textContent = 'Confirm Coordinates';
+            if (disp1) disp1.textContent = 'X1: -, Y1: -';
+            if (disp2) disp2.textContent = 'X2: -, Y2: -';
+        }
+    } catch (e) {
+        console.error('updateCoordinateScreenMode failed', e);
+    }
+}
+
+// GRID actions list
+const GRID_ACTIONS = new Set([
+    'Point - Score',
+    '2-Point - Score',
+    'Goal - Score',
+    'Point - Miss',
+    'Goal - Miss',
+    '45 Entry',
+    'Our Kickout',
+    'Opp. Kickout',
+    'Free Won',
+    'Ball Lost (Forced)',
+    'Ball Lost (Unforced)',
+    'Ball Won (Forced)',
+    'Ball Won (Unforced)',
+    'Foul Committed',
+    'Opp. 45 Entry'
+]);
+
+// Compute GRID id from normalized pitch coords
+function getGridFromPoint(x, y) {
+    // Layer 3: small semicircles (highest priority)
+    const rSmall = 13;
+    const d2Bottom = (x - 40) * (x - 40) + (y - 21) * (y - 21);
+    const d2Top = (x - 40) * (x - 40) + (y - 119) * (y - 119);
+    const insideSmallBottom = d2Bottom <= rSmall * rSmall && y >= 21; // face on y=21, interior towards y>=21
+    const insideSmallTop = d2Top <= rSmall * rSmall && y <= 119;      // face on y=119, interior towards y<=119
+    if (insideSmallBottom) return 'GRID4';
+    if (insideSmallTop) return 'GRID19';
+
+    // Layer 2: big arcs (middle priority)
+    const insideTopArc = isPointInsidePolygon(x, y, arcTop);
+    const insideBottomArc = isPointInsidePolygon(x, y, arcBottom);
+    if (insideBottomArc && y >= 0 && y <= 45) {
+        if (x < 40) return 'GRID5';
+        if (x > 40) return 'GRID6';
+        return 'GRID5';
+    }
+    if (insideTopArc && y >= 95 && y <= 140) {
+        if (x < 40) return 'GRID20';
+        if (x > 40) return 'GRID21';
+        return 'GRID20';
+    }
+
+    // Layer 1: rectangles (lowest priority)
+    const col3 = (x < 25) ? 0 : (x < 55) ? 1 : 2;
+    if (y >= 0 && y < 21) {
+        return ['GRID1','GRID2','GRID3'][col3];
+    }
+    if (y >= 21 && y < 45) {
+        return ['GRID7','GRID8','GRID9'][col3];
+    }
+    if (y >= 45 && y < 70) {
+        return ['GRID10','GRID11','GRID12'][col3];
+    }
+    if (y >= 70 && y < 95) {
+        return ['GRID13','GRID14','GRID15'][col3];
+    }
+    if (y >= 95 && y < 119) {
+        return ['GRID16','GRID17','GRID18'][col3];
+    }
+    if (y >= 119 && y <= 140) {
+        return ['GRID22','GRID23','GRID24'][col3];
+    }
+    return null;
+}
+
+// Draw highlight for selected GRID area
+function drawGridHighlight(gridId) {
+    // Compose highlight offscreen so we don't affect pitch lines
+    const off = document.createElement('canvas');
+    off.width = canvas.width;
+    off.height = canvas.height;
+    const offCtx = off.getContext('2d');
+    const drawCtx = offCtx;
+    drawCtx.globalAlpha = 0.28;
+    drawCtx.fillStyle = '#f97316'; // bright orange
+
+    // Path builders using Path2D for reliable compositing
+    const buildRectPath = (x0, y0, x1, y1) => {
+        const p = new Path2D();
+        const x = mapX(Math.min(x0, x1));
+        const y = mapY(Math.max(y0, y1));
+        const w = Math.abs(mapX(x1) - mapX(x0));
+        const h = Math.abs(mapY(y0) - mapY(y1));
+        p.rect(x, y, w, h);
+        return p;
+    };
+
+    const buildArcRegionPath = (points, chordY, half) => {
+        const filtered = (half === 'left') ? points.filter(p => p.x <= 40) : (half === 'right') ? points.filter(p => p.x >= 40) : points;
+        if (!filtered.length) return null;
+        const p = new Path2D();
+        p.moveTo(mapX(filtered[0].x), mapY(filtered[0].y));
+        for (let i = 1; i < filtered.length; i++) {
+            p.lineTo(mapX(filtered[i].x), mapY(filtered[i].y));
+        }
+        const last = filtered[filtered.length - 1];
+        const first = filtered[0];
+        p.lineTo(mapX(last.x), mapY(chordY));
+        p.lineTo(mapX(first.x), mapY(chordY));
+        p.closePath();
+        return p;
+    };
+
+    const buildSmallSemiPath = (pts, chordY) => {
+        const p = new Path2D();
+        p.moveTo(mapX(pts[0].x), mapY(pts[0].y));
+        for (let i = 1; i < pts.length; i++) {
+            p.lineTo(mapX(pts[i].x), mapY(pts[i].y));
+        }
+        const last = pts[pts.length - 1];
+        const first = pts[0];
+        p.lineTo(mapX(last.x), mapY(chordY));
+        p.lineTo(mapX(first.x), mapY(chordY));
+        p.closePath();
+        return p;
+    };
+
+    switch (gridId) {
+        case 'GRID4': {
+            const path = buildSmallSemiPath(clockwiseRotatedSemicircle, 21);
+            drawCtx.fill(path);
+            break;
+        }
+        case 'GRID5': {
+            const arcPath = buildArcRegionPath(arcBottom, 21, 'left');
+            if (arcPath) {
+                drawCtx.fill(arcPath);
+                // fully subtract semicircle (use alpha=1 during cutout)
+                const prevAlpha = drawCtx.globalAlpha;
+                drawCtx.globalCompositeOperation = 'destination-out';
+                drawCtx.globalAlpha = 1;
+                drawCtx.fill(buildSmallSemiPath(clockwiseRotatedSemicircle, 21));
+                drawCtx.globalAlpha = prevAlpha;
+                drawCtx.globalCompositeOperation = 'source-over';
+            }
+            break;
+        }
+        case 'GRID6': {
+            const arcPath = buildArcRegionPath(arcBottom, 21, 'right');
+            if (arcPath) {
+                drawCtx.fill(arcPath);
+                const prevAlpha = drawCtx.globalAlpha;
+                drawCtx.globalCompositeOperation = 'destination-out';
+                drawCtx.globalAlpha = 1;
+                drawCtx.fill(buildSmallSemiPath(clockwiseRotatedSemicircle, 21));
+                drawCtx.globalAlpha = prevAlpha;
+                drawCtx.globalCompositeOperation = 'source-over';
+            }
+            break;
+        }
+        case 'GRID19': {
+            const path = buildSmallSemiPath(rotatedSemicircle, 119);
+            drawCtx.fill(path);
+            break;
+        }
+        case 'GRID20': {
+            const arcPath = buildArcRegionPath(arcTop, 119, 'left');
+            if (arcPath) {
+                drawCtx.fill(arcPath);
+                const prevAlpha = drawCtx.globalAlpha;
+                drawCtx.globalCompositeOperation = 'destination-out';
+                drawCtx.globalAlpha = 1;
+                drawCtx.fill(buildSmallSemiPath(rotatedSemicircle, 119));
+                drawCtx.globalAlpha = prevAlpha;
+                drawCtx.globalCompositeOperation = 'source-over';
+            }
+            break;
+        }
+        case 'GRID21': {
+            const arcPath = buildArcRegionPath(arcTop, 119, 'right');
+            if (arcPath) {
+                drawCtx.fill(arcPath);
+                const prevAlpha = drawCtx.globalAlpha;
+                drawCtx.globalCompositeOperation = 'destination-out';
+                drawCtx.globalAlpha = 1;
+                drawCtx.fill(buildSmallSemiPath(rotatedSemicircle, 119));
+                drawCtx.globalAlpha = prevAlpha;
+                drawCtx.globalCompositeOperation = 'source-over';
+            }
+            break;
+        }
+        default: {
+            // Rectangular regions
+            const id = gridId.replace('GRID','')*1;
+            let rectPath = null;
+            if (id >= 1 && id <= 3) {
+                const col = id - 1; // 0..2
+                const xStarts = [0, 25, 55];
+                const xEnds = [25, 55, 80];
+                rectPath = buildRectPath(xStarts[col], 0, xEnds[col], 21);
+            } else if (id >= 7 && id <= 9) {
+                const col = id - 7; // 0..2
+                const xStarts = [0, 25, 55];
+                const xEnds = [25, 55, 80];
+                rectPath = buildRectPath(xStarts[col], 21, xEnds[col], 45);
+            } else if (id >= 10 && id <= 12) {
+                const col = id - 10; // 0..2
+                const xStarts = [0, 25, 55];
+                const xEnds = [25, 55, 80];
+                rectPath = buildRectPath(xStarts[col], 45, xEnds[col], 70);
+            } else if (id >= 13 && id <= 15) {
+                const col = id - 13; // 0..2
+                const xStarts = [0, 25, 55];
+                const xEnds = [25, 55, 80];
+                rectPath = buildRectPath(xStarts[col], 70, xEnds[col], 95);
+            } else if (id >= 16 && id <= 18) {
+                const col = id - 16; // 0..2
+                const xStarts = [0, 25, 55];
+                const xEnds = [25, 55, 80];
+                rectPath = buildRectPath(xStarts[col], 95, xEnds[col], 119);
+            } else if (id >= 22 && id <= 24) {
+                const col = id - 22; // 0..2
+                const xStarts = [0, 25, 55];
+                const xEnds = [25, 55, 80];
+                rectPath = buildRectPath(xStarts[col], 119, xEnds[col], 140);
+            }
+
+            if (rectPath) {
+                drawCtx.fill(rectPath);
+                // subtract arc and small semicircle masks (full alpha cutout)
+                drawCtx.globalCompositeOperation = 'destination-out';
+                const prevAlpha = drawCtx.globalAlpha;
+                drawCtx.globalAlpha = 1;
+                const bottomArcFull = buildArcRegionPath(arcBottom, 21, null);
+                const topArcFull = buildArcRegionPath(arcTop, 119, null);
+                if (bottomArcFull) drawCtx.fill(bottomArcFull);
+                if (topArcFull) drawCtx.fill(topArcFull);
+                drawCtx.fill(buildSmallSemiPath(clockwiseRotatedSemicircle, 21));
+                drawCtx.fill(buildSmallSemiPath(rotatedSemicircle, 119));
+                drawCtx.globalAlpha = prevAlpha;
+                drawCtx.globalCompositeOperation = 'source-over';
+            }
+        }
+    }
+    // Paint composed highlight over pitch
+    ctx.drawImage(off, 0, 0);
+}
 confirmCoordinatesButton.addEventListener('click', () => {
     try {
+        if (gridSelectionActive) {
+            if (!selectedGrid) {
+                showCoordinateWarning('Please select a grid area');
+                return;
+            }
+            currentCoordinates1 = selectedGrid;
+            currentCoordinates2 = selectedGrid;
+            // Log immediately for grid mode
+            logAction();
+            return;
+        }
+
         if (currentAction === 'Handpass' || currentAction === 'Kickpass' || currentAction === 'Carry') {
             if (!firstMarkerConfirmed) {
                 if (marker1.x !== null && marker1.y !== null) {
@@ -2105,13 +3253,98 @@ confirmCoordinatesButton.addEventListener('click', () => {
 });
 
 function toggleCoordinates() {
-    coordinatesEnabled = document.getElementById('toggle-coordinates').checked;
+    const settingsCoords = document.getElementById('settings-toggle-coordinates');
+    const headerCoords = document.getElementById('toggle-coordinates');
+    const isChecked = settingsCoords ? settingsCoords.checked : (headerCoords ? headerCoords.checked : false);
+    coordinatesEnabled = !!isChecked;
+    if (coordinatesEnabled) {
+        gridEnabled = false;
+        const gridToggle = document.getElementById('toggle-grid');
+        if (gridToggle) gridToggle.checked = false;
+        const settingsGrid = document.getElementById('settings-toggle-grid');
+        if (settingsGrid) settingsGrid.checked = false;
+        document.body.classList.remove('grid-mode');
+    }
+    syncToggleViews();
+}
+
+// Settings popup open/close
+function openSettingsPopup() {
+    const el = document.getElementById('settings-popup');
+    if (el) {
+        syncToggleViews();
+        PopupAnimator.showPopup(el, 'standard');
+    }
+}
+
+function closeSettingsPopup() {
+    const el = document.getElementById('settings-popup');
+    if (el) PopupAnimator.hidePopup(el, 'standard');
+}
+
+// Synchronize header and settings toggles both ways
+function syncToggleViews() {
+    const headerCoords = document.getElementById('toggle-coordinates');
+    const headerGrid = document.getElementById('toggle-grid');
+    const settingsCoords = document.getElementById('settings-toggle-coordinates');
+    const settingsGrid = document.getElementById('settings-toggle-grid');
+    const darkMode = document.getElementById('toggle-dark-mode');
+    const settingsDark = document.getElementById('settings-toggle-dark-mode');
+
+    // Determine current truth from state, then mirror to whichever controls exist
+    let coordsState = typeof coordinatesEnabled === 'boolean' ? coordinatesEnabled : false;
+    let gridState = typeof gridEnabled === 'boolean' ? gridEnabled : false;
+
+    // If header exists, prefer its live checked state
+    if (headerCoords) coordsState = headerCoords.checked;
+    if (headerGrid) gridState = headerGrid.checked;
+
+    // Enforce mutual exclusion in state
+    if (coordsState && gridState) {
+        // prefer the one just toggled; if ambiguous, disable grid
+        gridState = false;
+    }
+
+    // Push state to settings and header controls if present
+    if (settingsCoords) settingsCoords.checked = coordsState;
+    if (settingsGrid) settingsGrid.checked = gridState;
+    if (headerCoords) headerCoords.checked = coordsState;
+    if (headerGrid) headerGrid.checked = gridState;
+
+    // Keep internal flags aligned
+    coordinatesEnabled = coordsState;
+    gridEnabled = gridState;
+
+    // Dark mode sync
+    if (settingsDark && darkMode) settingsDark.checked = darkMode.checked;
+}
+
+function onSettingsToggleCoordinates() {
+    const settingsCoords = document.getElementById('settings-toggle-coordinates');
+    const headerCoords = document.getElementById('toggle-coordinates');
+    if (headerCoords && settingsCoords) headerCoords.checked = settingsCoords.checked;
+    toggleCoordinates();
+}
+
+function onSettingsToggleGrid() {
+    const settingsGrid = document.getElementById('settings-toggle-grid');
+    const headerGrid = document.getElementById('toggle-grid');
+    if (headerGrid && settingsGrid) headerGrid.checked = settingsGrid.checked;
+    toggleGrid();
+}
+
+function onSettingsToggleDarkMode() {
+    const settingsDark = document.getElementById('settings-toggle-dark-mode');
+    const headerDark = document.getElementById('toggle-dark-mode');
+    if (headerDark && settingsDark) headerDark.checked = settingsDark.checked;
+    toggleDarkMode();
 }
 
 function resetCoordinateScreen() {
     marker1 = { x: null, y: null };
     marker2 = { x: null, y: null };
     firstMarkerConfirmed = false;
+    selectedGrid = null;
     document.getElementById('coordinate-display-1').textContent = 'X1: -, Y1: -';
     document.getElementById('coordinate-display-2').textContent = 'X2: -, Y2: -';
     document.getElementById('coordinate-display-2').style.display = 'none';
@@ -3962,7 +5195,7 @@ function openNotePopup() {
     // Reset UI
     document.getElementById('note-list').innerHTML = '';
     document.getElementById('custom-note-input').value = '';
-    document.getElementById('note-popup').style.display = 'block';
+    PopupAnimator.showPopup(document.getElementById('note-popup'), 'standard');
 
     // Show/hide relevant parts based on mode
     const isAddMode = noteRowIndex !== null;
@@ -4045,66 +5278,49 @@ function setFilter(key, value) {
 }
 
 // =========================
-// SIDEBAR NAVIGATION LOGIC
+// BOTTOM NAVIGATION LOGIC
 // =========================
 
-// Elements
-const sidebar = document.getElementById("sidebar");
-const sidebarOverlay = document.getElementById("sidebar-overlay");
-const sidebarToggle = document.getElementById("sidebar-toggle");
-const closeSidebarBtn = document.getElementById("close-sidebar");
-const sidebarLinks = document.querySelectorAll(".sidebar-link");
-
-// Open sidebar
-function openSidebar() {
-    sidebar.classList.add("open");
-    sidebarOverlay.classList.add("active");
-}
-
-// Close sidebar
-function closeSidebar() {
-    sidebar.classList.remove("open");
-    sidebarOverlay.classList.remove("active");
-}
-
-// Toggle sidebar
-sidebarToggle.addEventListener("click", function(event) {
-    openSidebar();
-    // Remove focus to prevent stuck pressed state
-    event.target.blur();
-});
-closeSidebarBtn.addEventListener("click", closeSidebar);
-
-// Close sidebar when clicking outside
-sidebarOverlay.addEventListener("click", closeSidebar);
-
-// Keyboard shortcuts
-document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-        closeSidebar();
-    }
-});
-
-// Handle tab switching from sidebar
-sidebarLinks.forEach(link => {
-    link.addEventListener("click", (e) => {
+// Handle tab switching from bottom banner
+document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
         e.preventDefault();
-        const tabName = link.getAttribute("data-tab");
-        openTab(tabName); // Uses your existing openTab() function
+        const tabName = btn.getAttribute("data-tab");
+        openTab(tabName);
         highlightActiveTab(tabName);
-        closeSidebar();
-        // Save tab to localStorage
         localStorage.setItem("activeTab", tabName);
+        btn.blur();
     });
 });
 
+// Settings button in bottom banner
+const bottomSettingsBtn = document.getElementById("bottom-settings-btn");
+if (bottomSettingsBtn) {
+    bottomSettingsBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (typeof openSettingsPopup === "function") {
+            openSettingsPopup();
+            bottomSettingsBtn.blur();
+        }
+    });
+}
+
 // Highlight the active sidebar link
 function highlightActiveTab(tabName) {
-    sidebarLinks.forEach(link => {
+    // Sidebar links (legacy; may not exist)
+    document.querySelectorAll(".sidebar-link").forEach(link => {
         if (link.getAttribute("data-tab") === tabName) {
             link.classList.add("active");
         } else {
             link.classList.remove("active");
+        }
+    });
+    // Bottom nav buttons
+    document.querySelectorAll(".bottom-nav-btn").forEach(btn => {
+        if (btn.getAttribute("data-tab") === tabName) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
         }
     });
 }
@@ -5131,12 +6347,63 @@ function updateTimelineNumbers() {
 function showTimelineRowOptionsMenu(element, index) {
     currentRowIndex = index;
     const popup = document.getElementById('row-options-popup');
-    PopupAnimator.showPopup(popup, 'menu');
+	if (!popup) return;
+	// Position popup near the timeline entry clicked
+	positionRowOptionsPopup(popup, element);
+	PopupAnimator.showPopup(popup, 'menu');
     
     // Close menu when clicking outside
     setTimeout(() => {
         document.addEventListener('click', hideRowOptionsMenu, { once: true });
     }, 10);
+}
+
+// Utility to position the row options popup relative to an anchor element
+function positionRowOptionsPopup(popup, anchorEl) {
+	try {
+		const rect = anchorEl.getBoundingClientRect();
+		const scrollX = window.scrollX || window.pageXOffset;
+		const scrollY = window.scrollY || window.pageYOffset;
+		const OFFSET_X = 8;
+		const OFFSET_Y = 0;
+
+		// Temporarily show to measure size
+		const prevDisplay = popup.style.display;
+		const prevVisibility = popup.style.visibility;
+		popup.style.visibility = 'hidden';
+		popup.style.display = 'block';
+
+		const popupWidth = popup.offsetWidth || 200;
+		const popupHeight = popup.offsetHeight || 200;
+
+		let left = rect.right + OFFSET_X + scrollX;
+		let top = rect.top + OFFSET_Y + scrollY;
+
+		// Keep within viewport horizontally
+		const viewportRight = scrollX + window.innerWidth;
+		if (left + popupWidth > viewportRight - 8) {
+			left = rect.left - popupWidth - OFFSET_X + scrollX;
+		}
+		if (left < scrollX + 8) {
+			left = scrollX + 8;
+		}
+
+		// Keep within viewport vertically
+		const viewportBottom = scrollY + window.innerHeight;
+		if (top + popupHeight > viewportBottom - 8) {
+			const downShift = (top + popupHeight) - (viewportBottom - 8);
+			top = Math.max(scrollY + 8, top - downShift);
+		}
+
+		popup.style.left = `${left}px`;
+		popup.style.top = `${top}px`;
+
+		// Restore visibility; keep display as set for showPopup
+		popup.style.visibility = prevVisibility || 'visible';
+		popup.style.display = prevDisplay || 'block';
+	} catch (e) {
+		// Fallback: let it render where CSS positions it
+	}
 }
 
 // Action-specific note presets
@@ -6569,4 +7836,281 @@ function showTemporaryMessage(message, type = 'info') {
         messageEl.style.opacity = '0';
         messageEl.style.transform = 'translateX(-50%) translateY(-10px)';
     }, 4000);
+}
+
+// ===== PITCH PLOT SAVE FUNCTIONALITY =====
+
+// Generate legend data based on visible filters
+function generateLegend() {
+    const visibleActions = [];
+    
+    // Define all possible action types with their display information
+    const actionTypes = [
+        { id: 'point-score', name: 'Point - Score', icon: 'pointScore', color: '#3b82f6' },
+        { id: '2-point-score', name: '2-Point - Score', icon: 'twoPointScore', color: '#065f46' },
+        { id: 'goal-score', name: 'Goal - Score', icon: 'goalScore', color: '#065f46' },
+        { id: 'point-miss', name: 'Point - Miss', icon: 'pointMiss', color: '#dc2626' },
+        { id: 'goal-miss', name: 'Goal - Miss', icon: 'goalMiss', color: '#dc2626' },
+        { id: 'kickout', name: 'Kickout', icon: 'kickout', color: '#6b7280' },
+        { id: 'free-won', name: 'Free Won', icon: 'freeWon', color: '#14b8a6' },
+        { id: 'ball-lost-forced', name: 'Ball Lost (Forced)', icon: 'ballLostForced', color: '#ea580c' },
+        { id: 'ball-lost-unforced', name: 'Ball Lost (Unforced)', icon: 'ballLostUnforced', color: '#ea580c' },
+        { id: 'handpass', name: 'Handpass', icon: 'handpass', color: '#8b5cf6' },
+        { id: 'kickpass', name: 'Kickpass', icon: 'kickpass', color: '#8b5cf6' },
+        { id: 'carry', name: 'Carry', icon: 'carry', color: '#8b5cf6' },
+        { id: 'ball-won-forced', name: 'Ball Won (Forced)', icon: 'ballWonForced', color: '#1e40af' },
+        { id: 'ball-won-unforced', name: 'Ball Won (Unforced)', icon: 'ballWonUnforced', color: '#1e40af' },
+        { id: 'foul-committed', name: 'Foul Committed', icon: 'foulCommitted', color: '#581c87' }
+    ];
+    
+    actionTypes.forEach(action => {
+        // Check if either team has this action type visible
+        const team1Checked = document.getElementById(`filter-${action.id}-team1`)?.checked || false;
+        const team2Checked = document.getElementById(`filter-${action.id}-team2`)?.checked || false;
+        
+        if (team1Checked || team2Checked) {
+            visibleActions.push({
+                ...action,
+                team1Visible: team1Checked,
+                team2Visible: team2Checked
+            });
+        }
+    });
+    
+    return visibleActions;
+}
+
+// Draw legend icons for the saved image
+function drawLegendIcon(ctx, x, y, size, action) {
+    ctx.save();
+    
+    // Set up drawing parameters based on action type
+    switch(action.icon) {
+        case 'pointScore':
+            ctx.fillStyle = action.color;
+            ctx.beginPath();
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            break;
+        case 'twoPointScore':
+        case 'goalScore':
+            ctx.fillStyle = action.color;
+            ctx.fillRect(x, y, size, size);
+            break;
+        case 'pointMiss':
+        case 'goalMiss':
+            ctx.strokeStyle = action.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
+        case 'kickout':
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = action.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            break;
+        case 'freeWon':
+            ctx.fillStyle = action.color;
+            ctx.beginPath();
+            ctx.moveTo(x + size/2, y);
+            ctx.lineTo(x, y + size);
+            ctx.lineTo(x + size, y + size);
+            ctx.closePath();
+            ctx.fill();
+            break;
+        case 'ballLostForced':
+        case 'ballLostUnforced':
+            ctx.strokeStyle = action.color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + size, y + size);
+            ctx.moveTo(x + size, y);
+            ctx.lineTo(x, y + size);
+            ctx.stroke();
+            break;
+        case 'handpass':
+        case 'kickpass':
+        case 'carry':
+            ctx.fillStyle = action.color;
+            ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+            break;
+        case 'ballWonForced':
+        case 'ballWonUnforced':
+            ctx.fillStyle = action.color;
+            ctx.beginPath();
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            break;
+        case 'foulCommitted':
+            ctx.fillStyle = action.color;
+            ctx.beginPath();
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('F', x + size/2, y + size/2 + 3);
+            break;
+        default:
+            ctx.fillStyle = '#666666';
+            ctx.beginPath();
+            ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+            ctx.fill();
+    }
+    
+    ctx.restore();
+}
+
+// Draw the legend on the final canvas
+function drawLegend(ctx, visibleActions, startX, startY, legendWidth) {
+    const lineHeight = 25;
+    const iconSize = 15;
+    let currentY = startY + 60; // Start below the title
+    
+    // Legend title
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText('Legend', startX, currentY);
+    currentY += 30;
+    
+    // Draw a separator line
+    ctx.strokeStyle = '#cccccc';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(startX, currentY - 10);
+    ctx.lineTo(startX + legendWidth - 20, currentY - 10);
+    ctx.stroke();
+    
+    visibleActions.forEach(action => {
+        // Draw action icon
+        drawLegendIcon(ctx, startX, currentY, iconSize, action);
+        
+        // Draw action name
+        ctx.fillStyle = '#000000';
+        ctx.font = '12px Arial';
+        ctx.fillText(action.name, startX + iconSize + 10, currentY + 5);
+        
+        // Draw team indicators if applicable
+        if (action.team1Visible && action.team2Visible) {
+            ctx.fillStyle = '#666666';
+            ctx.font = '10px Arial';
+            ctx.fillText('(Both Teams)', startX + iconSize + 10, currentY + 15);
+        } else if (action.team1Visible) {
+            ctx.fillStyle = '#3b82f6'; // Team 1 color
+            ctx.font = '10px Arial';
+            ctx.fillText('(Team 1)', startX + iconSize + 10, currentY + 15);
+        } else if (action.team2Visible) {
+            ctx.fillStyle = '#ef4444'; // Team 2 color
+            ctx.font = '10px Arial';
+            ctx.fillText('(Team 2)', startX + iconSize + 10, currentY + 15);
+        }
+        
+        currentY += lineHeight;
+    });
+}
+
+// Main function to save the pitch plot as an image
+function savePitchPlot() {
+    try {
+        // Get the canvas and its context
+        const canvas = document.getElementById('review-pitch');
+        if (!canvas) {
+            console.error('Review pitch canvas not found');
+            return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        
+        // Create a new canvas for the final image (pitch + legend)
+        const finalCanvas = document.createElement('canvas');
+        const finalCtx = finalCanvas.getContext('2d');
+        
+        // Set dimensions for the final canvas
+        const pitchWidth = canvas.width;
+        const pitchHeight = canvas.height;
+        const legendWidth = 220; // Width for legend
+        const padding = 20;
+        const titleHeight = 80; // Space for title and timestamp
+        
+        finalCanvas.width = pitchWidth + legendWidth + (padding * 3);
+        finalCanvas.height = Math.max(pitchHeight, titleHeight + 300) + (padding * 2);
+        
+        // Fill background with white
+        finalCtx.fillStyle = '#ffffff';
+        finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+        
+        // Draw the pitch on the left side
+        finalCtx.drawImage(canvas, padding, padding + titleHeight);
+        
+        // Generate legend data
+        const visibleActions = generateLegend();
+        
+        // Add title and metadata
+        finalCtx.fillStyle = '#000000';
+        finalCtx.font = 'bold 18px Arial';
+        finalCtx.textAlign = 'center';
+        finalCtx.fillText('GAA Match Analysis', finalCanvas.width / 2, 30);
+        
+        // Add team names if available
+        const team1Name = document.getElementById('filter-team-1-name')?.textContent || 'Team 1';
+        const team2Name = document.getElementById('filter-team-2-name')?.textContent || 'Team 2';
+        finalCtx.font = '14px Arial';
+        finalCtx.fillText(`${team1Name} vs ${team2Name}`, finalCanvas.width / 2, 50);
+        
+        // Add timestamp
+        finalCtx.font = '12px Arial';
+        finalCtx.fillText(`Generated: ${new Date().toLocaleString()}`, finalCanvas.width / 2, 70);
+        
+        // Draw legend if there are visible actions
+        if (visibleActions.length > 0) {
+            drawLegend(finalCtx, visibleActions, pitchWidth + (padding * 2), padding + titleHeight, legendWidth);
+        } else {
+            // Show message if no actions are visible
+            finalCtx.fillStyle = '#666666';
+            finalCtx.font = '14px Arial';
+            finalCtx.textAlign = 'left';
+            finalCtx.fillText('No actions visible - use filters to show action types', 
+                            pitchWidth + (padding * 2), padding + titleHeight + 60);
+        }
+        
+        // Convert to blob and download
+        finalCanvas.toBlob(function(blob) {
+            if (!blob) {
+                console.error('Failed to create image blob');
+                return;
+            }
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Create filename with current date
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+            a.download = `gaa-pitch-analysis-${dateStr}-${timeStr}.png`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Show success message
+            showNotification('Pitch plot saved successfully!');
+            
+        }, 'image/png', 1.0); // High quality PNG
+        
+    } catch (error) {
+        console.error('Error saving pitch plot:', error);
+        showNotification('Error saving pitch plot. Please try again.', 'error');
+    }
 }
