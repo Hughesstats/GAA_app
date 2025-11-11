@@ -16,47 +16,113 @@
             <span class="team-name">Team 1:</span>
             <div id="counter-team-1" class="counter">0-00</div>
         </div>
-        <div id="counters-center" class="counters-center">
-            <div class="toggle-label-top">Coordinates:</div>
-            <label class="switch">
-                <input type="checkbox" id="toggle-coordinates" onchange="toggleCoordinates()">
-                <span class="slider round"></span>
-            </label>
-        </div>
+		<div id="counters-center" class="counters-center">
+			<div id="match-timer" aria-live="polite" aria-label="Match timer">
+				<div class="timer-clock-row">
+					<button id="timer-pause-btn" class="timer-button" aria-label="Start timer">Start</button>
+					<div id="timer-clock" class="timer-clock" aria-label="Match time">00:00</div>
+				</div>
+				<div id="timer-phase-label" class="timer-phase-label" aria-hidden="true"></div>
+				<button id="timer-tray-toggle" class="timer-tray-toggle" aria-label="Open timer options" aria-expanded="false" aria-controls="timer-tray">▼</button>
+			</div>
+		</div>
         <div class="counter-container">
             <span class="team-name">Team 2:</span>
             <div id="counter-team-2" class="counter">0-00</div>
         </div>
     </div>
 
-    <div id="coordinate-warning" class="fade-message"></div>
-    
-    <!-- Hamburger button to open sidebar -->
-    <button id="sidebar-toggle" class="hamburger">&#9776;</button>
-
-    <!-- Sidebar navigation menu -->
-    <div id="sidebar" class="sidebar">
-        <a href="javascript:void(0)" class="closebtn" id="close-sidebar">&times;</a>
-        <a href="#" class="sidebar-link" data-tab="home">Team Sheets</a>
-        <a href="#" class="sidebar-link" data-tab="stats">Match Log</a>
-        <a href="#" class="sidebar-link" data-tab="stats-tab">Stats</a>
-        <a href="#" class="sidebar-link" data-tab="summary">Summary</a>
-        <a href="#" class="sidebar-link" data-tab="review">Review</a>
-        
-        <!-- Dark Mode Toggle at bottom of sidebar -->
-        <div class="sidebar-footer">
-            <div class="dark-mode-toggle">
-                <span class="toggle-label">Dark Mode:</span>
-                <label class="switch">
-                    <input type="checkbox" id="toggle-dark-mode" onchange="toggleDarkMode()">
-                    <span class="slider round"></span>
-                </label>
-            </div>
+	<!-- Timer Options Tray -->
+    <div id="timer-tray" class="timer-tray" aria-hidden="true" role="region" aria-label="Match timer options">
+        <div class="timer-tray-inner" tabindex="-1">
+			<div class="timer-tray-group">
+				<button id="tray-next-phase" class="tray-button primary" aria-label="Start next phase">Start Next Phase</button>
+				<button id="tray-reset" class="tray-button warn" aria-label="Reset match timer, confirmation required">Reset Timer</button>
+				<button id="tray-end-match" class="tray-button danger" aria-label="End match, confirmation required">End Match</button>
+			</div>
+			<div class="timer-tray-divider"></div>
+			<div class="timer-tray-group tray-row">
+				<button id="tray-edit-time" class="tray-button" aria-label="Edit time">Edit Time</button>
+				<button id="tray-edit-phase" class="tray-button" aria-label="Edit phase">Edit Phase</button>
+			</div>
         </div>
     </div>
 
-    <!-- Overlay background -->
-    <div id="sidebar-overlay"></div>
+	<!-- Timer Confirm Reset Popup -->
+	<div id="timer-reset-popup" class="popup" style="display: none;">
+		<div class="popup-content sleek-popup">
+			<h3 class="popup-title">Reset Timer</h3>
+			<p>Are you sure you want to reset the timer for the current phase?</p>
+			<div class="popup-button-row">
+				<button id="timer-reset-confirm" class="popup-menu-button confirm">Reset</button>
+				<button class="popup-menu-button cancel" onclick="PopupAnimator.hidePopup(document.getElementById('timer-reset-popup'), 'standard')">Cancel</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Timer Edit Time Popup -->
+	<div id="timer-edit-time-popup" class="popup" style="display: none;">
+		<div class="popup-content sleek-popup">
+			<h3 class="popup-title">Edit Time</h3>
+			<p>Enter a new time value in MM:SS or HH:MM:SS format.</p>
+			<input id="timer-edit-time-input" type="text" placeholder="MM:SS or HH:MM:SS" />
+			<div class="popup-button-row">
+				<button id="timer-edit-time-confirm" class="popup-menu-button confirm">Apply</button>
+				<button class="popup-menu-button cancel" onclick="PopupAnimator.hidePopup(document.getElementById('timer-edit-time-popup'), 'standard')">Cancel</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Timer End Match Popup -->
+	<div id="timer-end-match-popup" class="popup" style="display: none;">
+		<div class="popup-content sleek-popup">
+			<h3 class="popup-title">End Match</h3>
+			<p>This will end the match and stop the timer. Are you sure?</p>
+			<div class="popup-button-row">
+				<button id="timer-end-match-confirm" class="popup-menu-button confirm">End Match</button>
+				<button class="popup-menu-button cancel" onclick="PopupAnimator.hidePopup(document.getElementById('timer-end-match-popup'), 'standard')">Cancel</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Timer Edit Phase Popup -->
+	<div id="timer-edit-phase-popup" class="popup" style="display: none;">
+		<div class="popup-content sleek-popup">
+			<h3 class="popup-title">Edit Phase</h3>
+			<div class="popup-buttons" style="display:flex;flex-direction:column;gap:12px;">
+				<button class="popup-menu-button" data-phase-key="PREMATCH">Pre-Match</button>
+				<button class="popup-menu-button" data-phase-key="H1">First Half</button>
+				<button class="popup-menu-button" data-phase-key="H2">Second Half</button>
+				<button class="popup-menu-button" data-phase-key="ET1">ET First</button>
+				<button class="popup-menu-button" data-phase-key="ET2">ET Second</button>
+			</div>
+			<div class="popup-button-row" style="margin-top:12px;">
+				<button class="popup-menu-button cancel" onclick="PopupAnimator.hidePopup(document.getElementById('timer-edit-phase-popup'), 'standard')">Close</button>
+			</div>
+		</div>
+	</div>
+
+    <div id="coordinate-warning" class="fade-message"></div>
+    
+    <!-- Bottom Navigation Banner -->
+    <div id="bottom-banner" role="navigation" aria-label="Primary">
+        <button class="bottom-nav-btn" data-tab="home" aria-label="Teams" tabindex="0">
+            <span class="bottom-nav-label">TEAMS</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="stats" aria-label="Log Match" tabindex="0">
+            <span class="bottom-nav-label">LOG MATCH</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="stats-tab" aria-label="Stats" tabindex="0">
+            <span class="bottom-nav-label">STATS</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="review" aria-label="Pitch" tabindex="0">
+            <span class="bottom-nav-label">PITCH</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="summary" aria-label="Data" tabindex="0">
+            <span class="bottom-nav-label">DATA</span>
+        </button>
+        <button id="bottom-settings-btn" class="bottom-settings-btn" aria-label="Open Settings" title="Settings" tabindex="0">☰</button>
+    </div>
 
     <main>
         <div id="home" class="tab-content">
@@ -1393,141 +1459,188 @@
 
         <!-- Stats Tab Content -->
         <div id="stats-tab" class="tab-content">
-            <div class="stats-container">
-                <div class="stats-title">
-                    <h1>STATS</h1>
+            <!-- Subtab Navigation Bar -->
+            <div class="stats-subtab-nav" role="tablist">
+                <button class="stats-subtab-btn" data-subtab="match" role="tab" aria-controls="stats-subtab-match" aria-selected="false" tabindex="0">
+                    MATCH
+                </button>
+                <button class="stats-subtab-btn active" data-subtab="teams" role="tab" aria-controls="stats-subtab-teams" aria-selected="true" tabindex="0">
+                    TEAMS
+                </button>
+                <button class="stats-subtab-btn" data-subtab="players" role="tab" aria-controls="stats-subtab-players" aria-selected="false" tabindex="0">
+                    PLAYERS
+                </button>
+            </div>
+
+            <!-- MATCH Subtab -->
+            <div id="stats-subtab-match" class="stats-subtab-content" role="tabpanel" aria-hidden="true">
+                <div class="stats-placeholder">
+                    <p class="stats-placeholder-text">Add a widget to begin</p>
+                    <button class="stats-add-widget-btn" onclick="openWidgetTray('match')" aria-label="Add widget">
+                        <span>+</span>
+                    </button>
                 </div>
-                
-                <!-- Team Headers -->
-                <div class="stats-team-headers">
-                    <div class="stats-team-pill" id="stats-team-1-pill">
-                        <span id="stats-team-1-name">Team 1</span>
+            </div>
+
+            <!-- TEAMS Subtab (Default - Contains existing STATS content) -->
+            <div id="stats-subtab-teams" class="stats-subtab-content active" role="tabpanel" aria-hidden="false">
+                <div class="stats-container">
+                    <div class="stats-title">
+                        <h1>STATS</h1>
                     </div>
-                    <div class="stats-team-pill stats-team-pill-center">
-                        <span>STATS</span>
+                    
+                    <!-- Team Headers -->
+                    <div class="stats-team-headers">
+                        <div class="stats-team-pill" id="stats-team-1-pill">
+                            <span id="stats-team-1-name">Team 1</span>
+                        </div>
+                        <div class="stats-team-pill stats-team-pill-center">
+                            <span>STATS</span>
+                        </div>
+                        <div class="stats-team-pill" id="stats-team-2-pill">
+                            <span id="stats-team-2-name">Team 2</span>
+                        </div>
                     </div>
-                    <div class="stats-team-pill" id="stats-team-2-pill">
-                        <span id="stats-team-2-name">Team 2</span>
+                    
+                    <!-- Shooting Group -->
+                    <div class="stats-group">
+                        <div class="stats-group-header" onclick="toggleStatsGroup('shooting')">
+                            <h3 class="stats-group-title">Shooting</h3>
+                            <span class="stats-group-toggle" id="shooting-toggle">▶</span>
+                        </div>
+                        <div class="stats-group-content collapsed" id="shooting-content">
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-shots">0</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Total Shots</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-shots">0</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-scores">0 (0 - 0 - 0)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Scores</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-scores">0 (0 - 0 - 0)</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-conversion">0%</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Shot Conversion</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-conversion">0%</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-shots-from-attacks">0/0 (0%)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Shots/Attacks</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-shots-from-attacks">0/0 (0%)</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-scores-from-attacks">0/0 (0%)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Scores/Attacks</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-scores-from-attacks">0/0 (0%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Kickouts Group -->
+                    <div class="stats-group">
+                        <div class="stats-group-header" onclick="toggleStatsGroup('kickouts')">
+                            <h3 class="stats-group-title">Kickouts</h3>
+                            <span class="stats-group-toggle" id="kickouts-toggle">▶</span>
+                        </div>
+                        <div class="stats-group-content collapsed" id="kickouts-content">
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-kickouts">0</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Kickouts</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-kickouts">0</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-kickouts-won">0/0 (0% Won)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Total Won</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-kickouts-won">0/0 (0% Won)</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-uncontested">0/0 (0% Won)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Uncontested</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-uncontested">0/0 (0% Won)</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-contested">0/0 (0% Won)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Contested</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-contested">0/0 (0% Won)</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <!-- Shooting Group -->
-                <div class="stats-group">
-                    <div class="stats-group-header" onclick="toggleStatsGroup('shooting')">
-                        <h3 class="stats-group-title">Shooting</h3>
-                        <span class="stats-group-toggle" id="shooting-toggle">▶</span>
-                    </div>
-                    <div class="stats-group-content collapsed" id="shooting-content">
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-shots">0</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Total Shots</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-shots">0</span>
-                            </div>
-                        </div>
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-scores">0 (0 - 0 - 0)</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Scores</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-scores">0 (0 - 0 - 0)</span>
-                            </div>
-                        </div>
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-conversion">0%</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Shot Conversion</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-conversion">0%</span>
-                            </div>
-                        </div>
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-shots-from-attacks">0/0 (0%)</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Shots/Attacks</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-shots-from-attacks">0/0 (0%)</span>
-                            </div>
-                        </div>
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-scores-from-attacks">0/0 (0%)</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Scores/Attacks</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-scores-from-attacks">0/0 (0%)</span>
-                            </div>
-                        </div>
-                    </div>
+            </div>
+
+            <!-- PLAYERS Subtab -->
+            <div id="stats-subtab-players" class="stats-subtab-content" role="tabpanel" aria-hidden="true">
+                <div class="stats-placeholder">
+                    <p class="stats-placeholder-text">Add a widget to begin</p>
+                    <button class="stats-add-widget-btn" onclick="openWidgetTray('players')" aria-label="Add widget">
+                        <span>+</span>
+                    </button>
                 </div>
-                
-                <!-- Kickouts Group -->
-                <div class="stats-group">
-                    <div class="stats-group-header" onclick="toggleStatsGroup('kickouts')">
-                        <h3 class="stats-group-title">Kickouts</h3>
-                        <span class="stats-group-toggle" id="kickouts-toggle">▶</span>
-                    </div>
-                    <div class="stats-group-content collapsed" id="kickouts-content">
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-kickouts">0</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Kickouts</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-kickouts">0</span>
-                            </div>
-                        </div>
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-kickouts-won">0/0 (0% Won)</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Total Won</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-kickouts-won">0/0 (0% Won)</span>
-                            </div>
-                        </div>
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-uncontested">0/0 (0% Won)</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Uncontested</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-uncontested">0/0 (0% Won)</span>
-                            </div>
-                        </div>
-                        <div class="stats-row">
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-1-contested">0/0 (0% Won)</span>
-                            </div>
-                            <div class="stats-column">
-                                <h3 class="stat-label">Contested</h3>
-                            </div>
-                            <div class="stats-column">
-                                <span class="stat-value" id="stats-team-2-contested">0/0 (0% Won)</span>
-                            </div>
-                        </div>
-                    </div>
+            </div>
+        </div>
+
+        <!-- Widget Tray -->
+        <div id="widget-tray" class="widget-tray" role="dialog" aria-modal="true" aria-labelledby="widget-tray-title" aria-hidden="true">
+            <div class="widget-tray-inner">
+                <button class="widget-tray-close" onclick="closeWidgetTray()" aria-label="Close widget tray">CLOSE</button>
+                <div class="widget-tray-content">
+                    <p class="widget-tray-placeholder">Widgets will be implemented soon</p>
+                    <p class="widget-tray-placeholder-subtext">Feature under development</p>
                 </div>
             </div>
         </div>
@@ -1565,6 +1678,48 @@
                 <button id="note-edit-button" class="popup-menu-button edit" onclick="enterEditNoteMode()" style="display: none;">Edit</button>
                 <button class="popup-menu-button cancel" onclick="closeNotePopup()">Close</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Settings Popup -->
+    <div id="settings-popup" class="popup" style="display: none;">
+        <div class="popup-content sleek-popup">
+            <h3 class="popup-title">Settings</h3>
+
+            <div class="settings-row">
+                <div class="settings-toggle-group">
+                    <div class="settings-label">Coordinates</div>
+                    <label class="switch">
+                        <input type="checkbox" id="settings-toggle-coordinates" onchange="onSettingsToggleCoordinates()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="settings-toggle-group">
+                    <div class="settings-label">GRID</div>
+                    <label class="switch">
+                        <input type="checkbox" id="settings-toggle-grid" onchange="onSettingsToggleGrid()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-hints">
+                <div class="settings-hint">USE COORINDATES FOR PRECISE LOCATION TRACKING</div>
+                <div class="settings-hint">USE GRID FOR GENERAL LOCATION TRACKING</div>
+            </div>
+
+            <div class="settings-dark-mode">
+                <span class="toggle-label">Dark Mode:</span>
+                <label class="switch">
+                    <input type="checkbox" id="settings-toggle-dark-mode" onchange="onSettingsToggleDarkMode()">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="popup-buttons">
+                <button onclick="closeSettingsPopup()">OK</button>
+            </div>
+            <div class="settings-version">v1.0.0</div>
         </div>
     </div>
     <script src="script.js"></script>
