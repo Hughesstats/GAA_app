@@ -6472,7 +6472,7 @@ const filterActions = () => {
     
     // Check 2-Point-Score filter toggles
     const show2PointScoreTeam1 = document.getElementById('filter-2-point-score-team1')?.checked || false;
-    const show2PointScoreTeam2 = document.getElementById('filter-2-point-score2')?.checked || false;
+    const show2PointScoreTeam2 = document.getElementById('filter-2-point-score-team2')?.checked || false;
     
     // Check Goal-Score filter toggles
     const showGoalScoreTeam1 = document.getElementById('filter-goal-score-team1')?.checked || false;
