@@ -1424,6 +1424,9 @@
                                     <th>Action</th>
                                     <th>Mode</th>
                                     <th>Definition</th>
+                                    <th>Team</th>
+                                    <th>Phase</th>
+                                    <th>Time</th>
                                     <th>Player</th>
                                     <th>Player 2</th>
                                     <th>X_1</th>
@@ -1474,11 +1477,21 @@
 
             <!-- MATCH Subtab -->
             <div id="stats-subtab-match" class="stats-subtab-content" role="tabpanel" aria-hidden="true">
-                <div class="stats-placeholder">
-                    <p class="stats-placeholder-text">Add a widget to begin</p>
-                    <button class="stats-add-widget-btn" onclick="openWidgetTray('match')" aria-label="Add widget">
-                        <span>+</span>
-                    </button>
+                <div class="dashboard-shell stats-match-widgets" data-dashboard="match" aria-label="Match dashboard">
+                    <div class="dashboard-toolbar stats-widgets-toolbar" role="toolbar" aria-label="Match widgets controls">
+                        <button class="dashboard-toolbar-btn dashboard-add-btn" data-dashboard-action="add" data-dashboard="match" aria-label="Add widget">
+                            <span>+</span>
+                        </button>
+                        <div class="dashboard-toolbar-spacer" aria-hidden="true"></div>
+                        <button class="dashboard-toolbar-btn dashboard-edit-btn" data-dashboard-action="edit" data-dashboard="match" aria-label="Edit dashboard">Edit</button>
+                    </div>
+                    <div id="match-widget-grid" class="dashboard-grid" aria-live="polite" aria-label="Active match widgets"></div>
+                    <div id="match-widget-placeholder" class="dashboard-empty" aria-live="polite">
+                        <p class="dashboard-empty-text">Add a widget to begin</p>
+                        <button class="stats-add-widget-btn dashboard-empty-add" data-dashboard-action="add" data-dashboard="match" aria-label="Add widget">
+                            <span>+</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1625,11 +1638,21 @@
 
             <!-- PLAYERS Subtab -->
             <div id="stats-subtab-players" class="stats-subtab-content" role="tabpanel" aria-hidden="true">
-                <div class="stats-placeholder">
-                    <p class="stats-placeholder-text">Add a widget to begin</p>
-                    <button class="stats-add-widget-btn" onclick="openWidgetTray('players')" aria-label="Add widget">
-                        <span>+</span>
-                    </button>
+                <div class="dashboard-shell stats-players-widgets" data-dashboard="players" aria-label="Players dashboard">
+                    <div class="dashboard-toolbar stats-widgets-toolbar" role="toolbar" aria-label="Players widgets controls">
+                        <button class="dashboard-toolbar-btn dashboard-add-btn" data-dashboard-action="add" data-dashboard="players" aria-label="Add widget">
+                            <span>+</span>
+                        </button>
+                        <div class="dashboard-toolbar-spacer" aria-hidden="true"></div>
+                        <button class="dashboard-toolbar-btn dashboard-edit-btn" data-dashboard-action="edit" data-dashboard="players" aria-label="Edit dashboard">Edit</button>
+                    </div>
+                    <div id="players-widget-grid" class="dashboard-grid" aria-live="polite" aria-label="Active players widgets"></div>
+                    <div id="players-widget-placeholder" class="dashboard-empty" aria-live="polite">
+                        <p class="dashboard-empty-text">Add a widget to begin</p>
+                        <button class="stats-add-widget-btn dashboard-empty-add" data-dashboard-action="add" data-dashboard="players" aria-label="Add widget">
+                            <span>+</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1638,9 +1661,24 @@
         <div id="widget-tray" class="widget-tray" role="dialog" aria-modal="true" aria-labelledby="widget-tray-title" aria-hidden="true">
             <div class="widget-tray-inner">
                 <button class="widget-tray-close" onclick="closeWidgetTray()" aria-label="Close widget tray">CLOSE</button>
-                <div class="widget-tray-content">
-                    <p class="widget-tray-placeholder">Widgets will be implemented soon</p>
-                    <p class="widget-tray-placeholder-subtext">Feature under development</p>
+                <div class="widget-tray-body">
+                    <!-- Left Section: Categories -->
+                    <div class="widget-tray-categories" role="tablist" aria-label="Widget categories">
+                        <button class="widget-tray-category-btn active" type="button" data-category="test" role="tab" aria-selected="true" aria-controls="widget-tray-list">
+                            TEST
+                        </button>
+                        <button class="widget-tray-category-btn" type="button" data-category="implemented" role="tab" aria-selected="false" aria-controls="widget-tray-list">
+                            IMPLEMENTED
+                        </button>
+                    </div>
+                    <!-- Right Section: Widget Cards -->
+                    <div class="widget-tray-widgets">
+                        <div class="widget-tray-widgets-header">
+                            <h3 id="widget-tray-title">Available Widgets</h3>
+                            <p class="widget-tray-subtitle">Add analytics to the MATCH workspace.</p>
+                        </div>
+                        <div class="widget-tray-list" id="widget-tray-list" role="list"></div>
+                    </div>
                 </div>
             </div>
         </div>
