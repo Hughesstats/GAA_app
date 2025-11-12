@@ -10,6 +10,12 @@ let team1Points = 0;
 let team2Goals = 0;
 let team2Points = 0;
 
+const AppEventBus = {
+	emit(name, detail = {}) {
+		document.dispatchEvent(new CustomEvent(name, { detail }));
+	}
+};
+
 let marker1 = { x: null, y: null };
 let marker2 = { x: null, y: null };
 let firstMarkerConfirmed = false;
@@ -135,8 +141,208 @@ let filters = {
     player: null,
     action: null,
     definition: null,
-    mode: null
+    mode: null,
+    phaseLabel: null
 };
+
+let pendingTimerSnapshot = null;
+
+function clearPendingTimerSnapshot() {
+    pendingTimerSnapshot = null;
+}
+
+function formatTimerDisplayFromMs(ms) {
+    if (typeof ms !== 'number' || Number.isNaN(ms)) return null;
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const timerInstance = window.__timerController;
+    if (timerInstance && typeof timerInstance.formatTime === 'function') {
+        try {
+            return timerInstance.formatTime(totalSeconds);
+        } catch (error) {
+            console.warn('Timer format failed, falling back to default formatter.', error);
+        }
+    }
+
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+    if (hours > 0) {
+        const hh = String(hours).padStart(2, '0');
+        return `${hh}:${mm}:${ss}`;
+    }
+    return `${mm}:${ss}`;
+}
+
+function captureTimerSnapshotForAction() {
+    const timer = window.__timerController;
+    if (!timer) {
+        pendingTimerSnapshot = null;
+        return;
+    }
+
+    const isRunning = typeof timer.isRunning === 'function'
+        ? timer.isRunning()
+        : !!timer.state?.isRunning;
+
+    if (!isRunning) {
+        pendingTimerSnapshot = null;
+        return;
+    }
+
+    const phaseKey = typeof timer.currentPhaseKey === 'function'
+        ? timer.currentPhaseKey()
+        : null;
+
+    const elapsedMs = typeof timer.getElapsedMs === 'function'
+        ? timer.getElapsedMs()
+        : null;
+
+    pendingTimerSnapshot = {
+        phaseKey: phaseKey || null,
+        phaseLabel: phaseKey ? (TimerController.getPhaseLabel?.(phaseKey) || phaseKey) : null,
+        elapsedMs: typeof elapsedMs === 'number' ? elapsedMs : null,
+        formattedTime: typeof elapsedMs === 'number' ? formatTimerDisplayFromMs(elapsedMs) : null
+    };
+}
+
+function applyTimerMetadata(entry) {
+    if (!entry || typeof entry !== 'object') return;
+
+    const timer = window.__timerController;
+    const isRunning = timer && (typeof timer.isRunning === 'function'
+        ? timer.isRunning()
+        : !!timer.state?.isRunning);
+
+    const snapshot = pendingTimerSnapshot;
+
+    let phaseKey = snapshot?.phaseKey || null;
+    let phaseLabel = snapshot?.phaseLabel || null;
+    let elapsedMs = typeof snapshot?.elapsedMs === 'number' ? snapshot.elapsedMs : null;
+    let formattedTime = snapshot?.formattedTime || null;
+
+    if (!phaseKey && isRunning && typeof timer?.currentPhaseKey === 'function') {
+        const currentPhase = timer.currentPhaseKey();
+        if (currentPhase) {
+            phaseKey = currentPhase;
+            phaseLabel = TimerController.getPhaseLabel?.(currentPhase) || currentPhase;
+        }
+    }
+
+    if (elapsedMs === null && isRunning && typeof timer?.getElapsedMs === 'function') {
+        const currentElapsed = timer.getElapsedMs();
+        if (typeof currentElapsed === 'number') {
+            elapsedMs = currentElapsed;
+        }
+    }
+
+    if (!formattedTime && typeof elapsedMs === 'number') {
+        formattedTime = formatTimerDisplayFromMs(elapsedMs);
+    }
+
+    entry.phaseKey = phaseKey || null;
+    entry.phaseLabel = phaseLabel || null;
+    entry.timerElapsedMs = typeof elapsedMs === 'number' ? elapsedMs : null;
+    entry.timerDisplayTime = formattedTime || null;
+}
+
+function resolveEntryPhaseLabel(entry) {
+    if (!entry) return '';
+    if (entry.phaseLabel) return entry.phaseLabel;
+    if (entry.phaseKey) {
+        return TimerController.getPhaseLabel?.(entry.phaseKey) || entry.phaseKey;
+    }
+    return '';
+}
+
+function resolveEntryTimerDisplay(entry) {
+    if (!entry) return '';
+    if (entry.timerDisplayTime) return entry.timerDisplayTime;
+    if (typeof entry.timerElapsedMs === 'number') {
+        return formatTimerDisplayFromMs(entry.timerElapsedMs) || '';
+    }
+    return '';
+}
+
+function findPhaseKeyFromLabel(label) {
+    if (!label || typeof label !== 'string') return null;
+    const normalized = label.trim().toLowerCase();
+    if (!normalized) return null;
+
+    for (const phase of TimerPhases) {
+        if (phase.key && phase.key.toLowerCase() === normalized) {
+            return phase.key;
+        }
+        if (phase.label && phase.label.toLowerCase() === normalized) {
+            return phase.key;
+        }
+    }
+
+    const aliasMap = {
+        'first half': 'H1',
+        '1st half': 'H1',
+        'h1': 'H1',
+        'second half': 'H2',
+        '2nd half': 'H2',
+        'h2': 'H2',
+        'half time': 'HT',
+        'half-time': 'HT',
+        'ht': 'HT',
+        'full time': 'FT',
+        'full-time': 'FT',
+        'ft': 'FT',
+        'extra time 1': 'ET1',
+        'et1': 'ET1',
+        'extra time 2': 'ET2',
+        'et2': 'ET2',
+        'et half time': 'ET1_HT',
+        'et halftime': 'ET1_HT',
+        'et half-time': 'ET1_HT',
+        'et1 ht': 'ET1_HT',
+        'et ht': 'ET1_HT',
+        'full time et': 'FTET',
+        'ft et': 'FTET',
+        'finished': 'FINISHED',
+        'match finished': 'FINISHED',
+        'pre match': 'PREMATCH',
+        'pre-match': 'PREMATCH',
+        'prematch': 'PREMATCH'
+    };
+
+    if (aliasMap[normalized]) {
+        return aliasMap[normalized];
+    }
+
+    return null;
+}
+
+function parseTimerDisplayToMs(display) {
+    if (!display || typeof display !== 'string') return null;
+    const trimmed = display.trim();
+    if (!trimmed) return null;
+
+    const parts = trimmed.split(':');
+    if (parts.length < 2 || parts.length > 3) return null;
+
+    const numbers = parts.map(part => {
+        const value = parseInt(part, 10);
+        return Number.isFinite(value) ? value : NaN;
+    });
+
+    if (numbers.some(num => Number.isNaN(num) || num < 0)) return null;
+
+    let totalSeconds = 0;
+    if (numbers.length === 3) {
+        const [hours, minutes, seconds] = numbers;
+        totalSeconds = hours * 3600 + minutes * 60 + seconds;
+    } else {
+        const [minutes, seconds] = numbers;
+        totalSeconds = minutes * 60 + seconds;
+    }
+
+    return totalSeconds * 1000;
+}
 
 document.addEventListener('DOMContentLoaded', function () {
     updateCounters();
@@ -342,6 +548,10 @@ class TimerController {
 		return this.state.elapsedMs;
 	}
 
+	isRunning() {
+		return !!this.state.isRunning;
+	}
+
 	formatTime(totalSeconds) {
 		const hours = Math.floor(totalSeconds / 3600);
 		const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -419,6 +629,7 @@ class TimerController {
 	}
 
 	setPhase(key, running = false) {
+		const previousKey = this.currentPhaseKey();
 		const index = TimerPhases.findIndex(p => p.key === key);
 		if (index === -1) return;
 		this.state.phaseIndex = index;
@@ -429,6 +640,10 @@ class TimerController {
 		this.state.startEpochMs = running ? Date.now() : null;
 		this.save();
 		this.updateUI(true);
+		const currentKey = this.currentPhaseKey();
+		TimerController.emitPhaseChange(previousKey, currentKey, {
+			running: this.state.isRunning
+		});
 	}
 
 	startPhase(key, toastMsg) {
@@ -480,13 +695,15 @@ class TimerController {
 	}
 
 	confirmReset() {
-		this.state.elapsedMs = 0;
-		this.state.startEpochMs = Date.now();
-		this.state.pausedAccumMs = 0;
-		this.state.lastPauseStartMs = null;
-		this.logEvent('reset', {});
+		const previousKey = this.currentPhaseKey();
+		this.setPhase('PREMATCH', false);
+		this.state.isRunning = false;
+		this.logEvent('reset', {
+			phase: TimerController.getPhaseLabel('PREMATCH')
+		});
 		this.save();
-		this.updateUI();
+		this.updateUI(true);
+		TimerController.emitReset(previousKey);
 		this.closeTray();
 	}
 
@@ -761,7 +978,6 @@ TimerController.buildPauseIcon = function() {
 	svg.appendChild(right);
 	return svg;
 };
-
 // Gaelic football icon (bold stitched ball)
 TimerController.buildGaelicBallIcon = function() {
 	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -826,6 +1042,30 @@ TimerController.showToast = function(message) {
 	}, 1500);
 };
 
+TimerController.getPhaseLabel = function(key) {
+	if (!key) return '';
+	if (key === 'PREMATCH') return 'Pre-Match';
+	const phase = TimerPhases.find(p => p.key === key);
+	return phase?.label || key;
+};
+
+TimerController.emitPhaseChange = function(previousKey, currentKey, extra = {}) {
+	AppEventBus.emit('timer:phase-change', {
+		previous: previousKey,
+		current: currentKey,
+		previousLabel: TimerController.getPhaseLabel(previousKey),
+		currentLabel: TimerController.getPhaseLabel(currentKey),
+		...extra
+	});
+};
+
+TimerController.emitReset = function(previousKey) {
+	AppEventBus.emit('timer:reset', {
+		previous: previousKey,
+		previousLabel: TimerController.getPhaseLabel(previousKey)
+	});
+};
+
 // Play icon with a leading bar at the left (same height as triangle)
 TimerController.buildPlayWithBarIcon = function() {
 	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -856,12 +1096,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 document.addEventListener('click', (e) => {
     const popup = document.getElementById('row-options-popup');
+    if (!popup) {
+        return;
+    }
     if (!popup.contains(e.target)) {
         hideRowOptionsMenu();
     }
 });
 
 function selectAction(action) {
+    captureTimerSnapshotForAction();
     currentAction = action;
     currentCoordinates1 = '';
     currentCoordinates2 = '';
@@ -877,7 +1121,7 @@ function selectAction(action) {
         'Free Won': 'mode-free-won',
         'Ball - Won': 'mode-ball-won',
         'Ball Won (Forced)': 'mode-ball-won',
-        'Ball Won (Unforced)': 'mode-ball-won-unforced',
+        'Ball Won (Unforced)': 'mode-ball-won',
         'Ball - Lost': 'mode-ball-lost',
         'Ball Lost (Forced)': 'mode-ball-lost',
         'Ball Lost (Unforced)': 'mode-ball-lost-unforced',
@@ -1140,6 +1384,9 @@ function logAction() {
         entry.team = getCurrentTeamDisplayName(teamCode);
         entry.teamNumber = teamCode === 'team1' ? 1 : 2;
 
+        applyTimerMetadata(entry);
+        entry.loggedAt = Date.now();
+
         actionsLog.push(entry);
         updateSummary();
 
@@ -1176,6 +1423,11 @@ function logAction() {
         }
 
         updateCounters();
+        AppEventBus.emit('scores:entry', {
+            type: 'add',
+            entry,
+            team: teamCode
+        });
         resetSelection();
         resetCoordinateScreen(); // Reset the coordinate screen after logging the action
         
@@ -1228,6 +1480,7 @@ function logPointAgainst() {
     entry.team = getCurrentTeamDisplayName(teamCode);
     entry.teamNumber = teamCode === 'team1' ? 1 : 2;
     
+    applyTimerMetadata(entry);
     actionsLog.push(entry);
     updateSummary();
     team2Points++;
@@ -1261,6 +1514,7 @@ function logGoalAgainst() {
     entry.team = getCurrentTeamDisplayName(teamCode);
     entry.teamNumber = teamCode === 'team1' ? 1 : 2;
     
+    applyTimerMetadata(entry);
     actionsLog.push(entry);
     updateSummary();
     team2Goals++;
@@ -1292,6 +1546,7 @@ function logMissAgainst() {
     entry.team = getCurrentTeamDisplayName(teamCode);
     entry.teamNumber = teamCode === 'team1' ? 1 : 2;
     
+    applyTimerMetadata(entry);
     actionsLog.push(entry);
     updateSummary();
     updateCounters();
@@ -1389,7 +1644,6 @@ function switchScreen(screenId) {
         drawPitch(); // Ensure the pitch is drawn when entering the coordinate screen
     }
 }
-
 function updateSummary() {
     const summaryTable = document.getElementById('summary-table');
     const summaryTableHead = summaryTable.querySelector('thead');
@@ -1409,9 +1663,18 @@ function updateSummary() {
                     if (key !== 'definition' && filters.definition && entry.definition !== filters.definition) return false;
                     if (key !== 'mode' && filters.mode && entry.mode !== filters.mode) return false;
                     if (key !== 'team' && filters.team && entry.team !== filters.team) return false;
+                    if (key !== 'phaseLabel' && filters.phaseLabel) {
+                        const label = resolveEntryPhaseLabel(entry);
+                        if (label !== filters.phaseLabel) return false;
+                    }
                     return true;
                 })
-                .map(entry => entry[key])
+                .map(entry => {
+                    if (key === 'phaseLabel') {
+                        return resolveEntryPhaseLabel(entry);
+                    }
+                    return entry[key];
+                })
                 .filter(Boolean)
         )].sort();
     };
@@ -1419,7 +1682,7 @@ function updateSummary() {
     // First row: column labels
     const headerLabelRow = document.createElement('tr');
 
-    ['Action', 'Add_1', 'Add_2', 'Team', 'Player_1', 'Player_2', 'X1', 'Y1', 'X2', 'Y2', 'Notes'].forEach(label => {
+    ['Action', 'Add_1', 'Add_2', 'Team', 'Phase', 'Time', 'Player_1', 'Player_2', 'X1', 'Y1', 'X2', 'Y2', 'Notes'].forEach(label => {
         const th = document.createElement('th');
         th.textContent = label;
         headerLabelRow.appendChild(th);
@@ -1434,8 +1697,10 @@ function updateSummary() {
     filterRow.appendChild(createFilterHeader('', 'mode', uniqueValues('mode')));
     filterRow.appendChild(createFilterHeader('', 'definition', uniqueValues('definition')));
     filterRow.appendChild(createFilterHeader('', 'team', uniqueValues('team')));
+    filterRow.appendChild(createFilterHeader('', 'phaseLabel', uniqueValues('phaseLabel')));
+    filterRow.appendChild(document.createElement('th')); // Time column (no filter)
     filterRow.appendChild(createFilterHeader('', 'player', uniqueValues('player')));
-
+    
     for (let i = 0; i < 6; i++) {
         filterRow.appendChild(document.createElement('th'));
     }
@@ -1451,6 +1716,10 @@ function updateSummary() {
             if (filters.definition && entry.definition !== filters.definition) return false;
             if (filters.mode && entry.mode !== filters.mode) return false;
             if (filters.team && entry.team !== filters.team) return false;
+            if (filters.phaseLabel) {
+                const currentPhaseLabel = resolveEntryPhaseLabel(entry);
+                if (currentPhaseLabel !== filters.phaseLabel) return false;
+            }
             return true;
         });
 
@@ -1463,6 +1732,8 @@ function updateSummary() {
         const add1Cell = document.createElement('td');
         const add2Cell = document.createElement('td');
         const teamCell = document.createElement('td');
+        const phaseCell = document.createElement('td');
+        const timeCell = document.createElement('td');
         const player1Cell = document.createElement('td');
         const player2Cell = document.createElement('td');
         const x1Cell = document.createElement('td');
@@ -1475,6 +1746,8 @@ function updateSummary() {
         add2Cell.textContent = entry.definition;
         // Use the stored team name directly (no conversion needed)
         teamCell.textContent = entry.team;
+        phaseCell.textContent = resolveEntryPhaseLabel(entry);
+        timeCell.textContent = resolveEntryTimerDisplay(entry);
         player1Cell.textContent = entry.player;
         player2Cell.textContent = entry.player2;
 
@@ -1503,6 +1776,8 @@ function updateSummary() {
         row.appendChild(add1Cell);
         row.appendChild(add2Cell);
         row.appendChild(teamCell);
+        row.appendChild(phaseCell);
+        row.appendChild(timeCell);
         row.appendChild(player1Cell);
         row.appendChild(player2Cell);
         row.appendChild(x1Cell);
@@ -1558,11 +1833,10 @@ function updateSummary() {
     // Update stats tab
     updateStatsTab();
 }
-
 function exportDataToCSV() {
     try {
         // Define CSV headers
-        const headers = ['Action', 'Add_1', 'Add_2', 'Team', 'Team_Number', 'Player_1', 'Player_2', 'X1', 'Y1', 'X2', 'Y2', 'Notes'];
+        const headers = ['Action', 'Add_1', 'Add_2', 'Team', 'Team_Number', 'Phase', 'Time', 'Player_1', 'Player_2', 'X1', 'Y1', 'X2', 'Y2', 'Notes'];
         
         // Create CSV content
         let csvContent = headers.join(',') + '\n';
@@ -1603,6 +1877,8 @@ function exportDataToCSV() {
                 entry.definition || '',
                 entry.team || '',
                 entry.teamNumber || '',
+                resolveEntryPhaseLabel(entry),
+                resolveEntryTimerDisplay(entry),
                 entry.player || '',
                 entry.player2 || '',
                 x1,
@@ -1684,19 +1960,23 @@ function handleCSVUpload(event) {
             
             // Parse header row
             const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-            const expectedHeaders = ['Action', 'Add_1', 'Add_2', 'Team', 'Team_Number', 'Player_1', 'Player_2', 'X1', 'Y1', 'X2', 'Y2', 'Notes'];
-            
-            // Check if headers match expected format (with or without Team_Number for backward compatibility)
-            const hasTeamNumber = headers.some(header => header === 'Team_Number');
-            const requiredHeaders = hasTeamNumber ? expectedHeaders : expectedHeaders.filter(h => h !== 'Team_Number');
-            const headersMatch = requiredHeaders.every(expected => 
-                headers.some(header => header === expected)
-            );
-            
-            if (!headersMatch) {
-                alert('CSV file format does not match expected columns. Please ensure the file has the correct headers.');
+            const headerIndex = headers.reduce((map, header, idx) => {
+                if (header) {
+                    map[header] = idx;
+                }
+                return map;
+            }, {});
+
+            const baseHeaders = ['Action', 'Add_1', 'Add_2', 'Team', 'Player_1', 'Player_2', 'X1', 'Y1', 'X2', 'Y2', 'Notes'];
+            const missingBaseHeaders = baseHeaders.filter(header => !(header in headerIndex));
+            if (missingBaseHeaders.length > 0) {
+                alert(`CSV file is missing required columns: ${missingBaseHeaders.join(', ')}`);
                 return;
             }
+
+            const hasTeamNumber = 'Team_Number' in headerIndex;
+            const hasPhaseColumn = 'Phase' in headerIndex;
+            const hasTimeColumn = 'Time' in headerIndex;
             
             // Parse data rows
             const newEntries = [];
@@ -1706,68 +1986,89 @@ function handleCSVUpload(event) {
                 
                 // Parse CSV line (handle quoted values)
                 const values = parseCSVLine(line);
-                
-                // Handle both old format (11 columns) and new format (12 columns with Team_Number)
-                const minColumns = hasTeamNumber ? 12 : 11;
-                if (values.length >= minColumns) {
-                    // Get current team names for display
-                    const team1Button = document.getElementById('rename-team-1-button');
-                    const team2Button = document.getElementById('rename-team-2-button');
-                    const currentTeam1Name = team1Button ? team1Button.textContent.trim() : 'Team 1';
-                    const currentTeam2Name = team2Button ? team2Button.textContent.trim() : 'Team 2';
-                    
-                    let teamNumber, displayTeamName, player, player2, x1, y1, x2, y2, notes;
-                    
-                    if (hasTeamNumber) {
-                        // New format with Team_Number column
-                        teamNumber = parseInt(values[4]) || 1;
-                        displayTeamName = teamNumber === 1 ? currentTeam1Name : currentTeam2Name;
-                        player = values[5] || '';
-                        player2 = values[6] || '';
-                        x1 = values[7];
-                        y1 = values[8];
-                        x2 = values[9];
-                        y2 = values[10];
-                        notes = values[11];
-                    } else {
-                        // Old format without Team_Number column - use team name matching
-                        const originalTeamName = values[3] || '';
-                        // Try to match with current team names, default to Team 1 if no match
-                        if (originalTeamName === currentTeam1Name) {
-                            teamNumber = 1;
-                            displayTeamName = currentTeam1Name;
-                        } else if (originalTeamName === currentTeam2Name) {
-                            teamNumber = 2;
-                            displayTeamName = currentTeam2Name;
-                        } else {
-                            // No match found, default to Team 1
-                            teamNumber = 1;
-                            displayTeamName = currentTeam1Name;
-                        }
-                        player = values[4] || '';
-                        player2 = values[5] || '';
-                        x1 = values[6];
-                        y1 = values[7];
-                        x2 = values[8];
-                        y2 = values[9];
-                        notes = values[10];
+
+                const getValue = (headerName) => {
+                    const index = headerIndex[headerName];
+                    if (typeof index === 'number' && index < values.length) {
+                        return values[index];
                     }
-                    
-                    const entry = {
-                        action: values[0] || '',
-                        mode: values[1] || '',
-                        definition: values[2] || '',
-                        team: displayTeamName, // Use current team name for display
-                        teamNumber: teamNumber, // Use team number for logic
-                        player: player,
-                        player2: player2,
-                        coordinates1: x1 && y1 ? `(${x1}, ${y1})` : '',
-                        coordinates2: x2 && y2 ? `(${x2}, ${y2})` : '',
-                        notes: notes ? notes.split('; ').filter(note => note.trim()) : []
-                    };
-                    
-                    newEntries.push(entry);
+                    return '';
+                };
+
+                // Get current team names for display
+                const team1Button = document.getElementById('rename-team-1-button');
+                const team2Button = document.getElementById('rename-team-2-button');
+                const currentTeam1Name = team1Button ? team1Button.textContent.trim() : 'Team 1';
+                const currentTeam2Name = team2Button ? team2Button.textContent.trim() : 'Team 2';
+
+                const originalTeamName = getValue('Team');
+                let teamNumber;
+                let displayTeamName;
+
+                if (hasTeamNumber) {
+                    const parsedTeamNumber = parseInt(getValue('Team_Number'), 10);
+                    teamNumber = Number.isFinite(parsedTeamNumber) ? parsedTeamNumber : 1;
+                    displayTeamName = teamNumber === 2 ? currentTeam2Name : currentTeam1Name;
+                } else {
+                    if (originalTeamName === currentTeam2Name) {
+                        teamNumber = 2;
+                        displayTeamName = currentTeam2Name;
+                    } else if (originalTeamName === currentTeam1Name) {
+                        teamNumber = 1;
+                        displayTeamName = currentTeam1Name;
+                    } else if (originalTeamName && originalTeamName.toLowerCase() === (currentTeam2Name || '').toLowerCase()) {
+                        teamNumber = 2;
+                        displayTeamName = currentTeam2Name;
+                    } else {
+                        teamNumber = 1;
+                        displayTeamName = currentTeam1Name;
+                    }
                 }
+
+                const player = getValue('Player_1') || '';
+                const player2 = getValue('Player_2') || '';
+                const x1 = getValue('X1');
+                const y1 = getValue('Y1');
+                const x2 = getValue('X2');
+                const y2 = getValue('Y2');
+                const notesRaw = getValue('Notes');
+                const phaseRaw = hasPhaseColumn ? getValue('Phase') : '';
+                const timeRaw = hasTimeColumn ? getValue('Time') : '';
+
+                const phaseKey = findPhaseKeyFromLabel(phaseRaw);
+                const phaseLabel = phaseKey
+                    ? (TimerController.getPhaseLabel?.(phaseKey) || phaseRaw || '')
+                    : (phaseRaw || '');
+                const timerElapsedMs = parseTimerDisplayToMs(timeRaw);
+                const timerDisplayTime = timeRaw && timeRaw.trim() ? timeRaw.trim() : '';
+
+                const entry = {
+                    action: getValue('Action') || '',
+                    mode: getValue('Add_1') || '',
+                    definition: getValue('Add_2') || '',
+                    team: displayTeamName,
+                    teamNumber: teamNumber,
+                    player: player,
+                    player2: player2,
+                    coordinates1: x1 && y1 ? `(${x1}, ${y1})` : '',
+                    coordinates2: x2 && y2 ? `(${x2}, ${y2})` : '',
+                    notes: notesRaw ? notesRaw.split('; ').filter(note => note.trim()) : []
+                };
+
+                if (phaseKey) {
+                    entry.phaseKey = phaseKey;
+                }
+                if (phaseLabel) {
+                    entry.phaseLabel = phaseLabel;
+                }
+                if (timerDisplayTime) {
+                    entry.timerDisplayTime = timerDisplayTime;
+                }
+                if (timerElapsedMs !== null) {
+                    entry.timerElapsedMs = timerElapsedMs;
+                }
+
+                newEntries.push(entry);
             }
             
             if (newEntries.length === 0) {
@@ -2153,7 +2454,6 @@ function openEnhancedNotePopup() {
     // Create a simple, clean note popup
     createSimpleNotePopup(actionType, presets, index);
 }
-
 function createSimpleNotePopup(actionType, presets, index) {
     // Remove existing popup if any
     const existingPopup = document.getElementById('simple-note-popup');
@@ -2350,7 +2650,6 @@ function updateCounters() {
     document.getElementById('counter-team-1').textContent = `${team1Goals}-${team1Points.toString().padStart(2, '0')}`;
     document.getElementById('counter-team-2').textContent = `${team2Goals}-${team2Points.toString().padStart(2, '0')}`;
 }
-
 // Update score counters by recalculating from all data
 function updateScoreCountersFromData() {
     // Reset counters
@@ -2396,6 +2695,10 @@ function updateScoreCountersFromData() {
                 break;
         }
     });
+
+    AppEventBus.emit('scores:recalculate', {
+        actions: actionsLog.slice()
+    });
 }
 
 function resetSelection() {
@@ -2409,6 +2712,7 @@ function resetSelection() {
     marker1 = { x: null, y: null };
     marker2 = { x: null, y: null };
     firstMarkerConfirmed = false;
+    clearPendingTimerSnapshot();
 }
 
 function openTab(tabName) {
@@ -2470,6 +2774,10 @@ function switchStatsSubtab(subtabName) {
     if (subtabName === 'teams') {
         updateStatsTab();
     }
+
+	if (typeof DashboardController !== 'undefined' && DashboardController.refreshForSubtab) {
+		DashboardController.refreshForSubtab(subtabName);
+	}
 }
 
 // Widget Tray Management
@@ -2482,7 +2790,18 @@ function openWidgetTray(context) {
         return;
     }
 
-    widgetTrayOpen = true;
+    if (typeof DashboardController !== 'undefined' && DashboardController.getManager) {
+        const manager = DashboardController.getManager(context);
+        if (manager && manager.isEditing()) {
+            showDashboardMessage('Exit edit mode to add widgets.');
+            return;
+        }
+        if (DashboardController.setTrayContext) {
+            DashboardController.setTrayContext(context);
+        }
+    }
+
+	widgetTrayOpen = true;
     tray.setAttribute('aria-hidden', 'false');
     
     // Prevent body scroll when tray is open
@@ -2492,7 +2811,10 @@ function openWidgetTray(context) {
     setTimeout(() => {
         widgetTrayOutsideHandler = (e) => {
             // Don't close if clicking inside the tray or the add widget button
-            if (!tray.contains(e.target) && !e.target.closest('.stats-add-widget-btn')) {
+			if (!tray.contains(e.target)
+				&& !e.target.closest('.stats-add-widget-btn')
+				&& !e.target.closest('.dashboard-add-btn')
+				&& !e.target.closest('.dashboard-empty-add')) {
                 closeWidgetTray();
             }
         };
@@ -2527,8 +2849,2167 @@ function closeWidgetTray() {
     }
     
     // Restore body scroll
-    document.body.style.overflow = '';
+	document.body.style.overflow = '';
+
+	if (typeof DashboardController !== 'undefined' && DashboardController.clearTrayContext) {
+		DashboardController.clearTrayContext();
+	}
 }
+
+const MatchWidgetManager = (() => {
+	const SCORE_ACTION_DELTAS = {
+		'Point - Score': { goals: 0, points: 1 },
+		'2-Point - Score': { goals: 0, points: 2 },
+		'Goal - Score': { goals: 1, points: 0 },
+		'Point - Score (Team 2)': { goals: 0, points: 1 },
+		'2-Point - Score (Team 2)': { goals: 0, points: 2 },
+		'Goal - Score (Team 2)': { goals: 1, points: 0 },
+		'Point - Against': { goals: 0, points: 1 },
+		'2-Point - Against': { goals: 0, points: 2 },
+		'Goal - Against': { goals: 1, points: 0 }
+	};
+
+	const SECTION_LABELS = {
+		H1: 'First Half Scores',
+		H2: 'Second Half Scores',
+		ET1: 'Extra Time 1 Scores',
+		ET2: 'Extra Time 2 Scores'
+	};
+
+	const PHASE_ORDER = ['H1', 'H2', 'ET1', 'ET2'];
+
+	const REQUIRED_SECTIONS_BY_PHASE = {
+		H1: ['H1'],
+		HT: ['H1', 'H2'],
+		H2: ['H1', 'H2'],
+		FT: ['H1', 'H2'],
+		ET1: ['H1', 'H2', 'ET1'],
+		ET1_HT: ['H1', 'H2', 'ET1', 'ET2'],
+		ET2: ['H1', 'H2', 'ET1', 'ET2'],
+		FTET: ['H1', 'H2', 'ET1', 'ET2']
+	};
+
+	let initialized = false;
+	let container;
+	let placeholder;
+	let shell;
+	let inlineAddBtn;
+	const registry = new Map();
+	let seed = 0;
+
+	function init() {
+		if (initialized) return;
+		container = document.getElementById('match-widget-grid');
+		placeholder = document.getElementById('match-widget-placeholder');
+		shell = document.getElementById('match-widgets-shell');
+		inlineAddBtn = document.querySelector('.stats-add-widget-inline');
+		if (!container || !shell) return;
+
+		bindAddButtons();
+
+		document.addEventListener('timer:phase-change', onPhaseChange);
+		document.addEventListener('timer:reset', onTimerReset);
+		document.addEventListener('scores:entry', onScoreEntry);
+		document.addEventListener('scores:recalculate', onScoresRecalculate);
+
+		initialized = true;
+		updateEmptyState();
+	}
+
+	function bindAddButtons() {
+		document.querySelectorAll('[data-widget-add]').forEach(btn => {
+			if (btn.dataset.widgetBound === 'true') return;
+			btn.addEventListener('click', () => {
+				const type = btn.dataset.widgetAdd;
+				const widget = addWidget(type);
+				if (widget) {
+					btn.classList.add('widget-tray-card-added');
+					setTimeout(() => btn.classList.remove('widget-tray-card-added'), 400);
+					if (typeof closeWidgetTray === 'function') closeWidgetTray();
+					widget.focusRemoveButton();
+				}
+			});
+			btn.dataset.widgetBound = 'true';
+		});
+		if (inlineAddBtn && inlineAddBtn.dataset.widgetBound !== 'true') {
+			inlineAddBtn.addEventListener('click', () => openWidgetTray('match'));
+			inlineAddBtn.dataset.widgetBound = 'true';
+		}
+	}
+
+	function addWidget(type) {
+		if (type !== 'scores-by-half' || !container) return null;
+		const id = `scores-by-half-${Date.now()}-${++seed}`;
+		const widget = createScoresByHalfWidget(id);
+		registry.set(id, widget);
+		container.appendChild(widget.root);
+		requestAnimationFrame(() => widget.root.classList.add('widget-enter-active'));
+		setTimeout(() => widget.root.classList.remove('widget-enter', 'widget-enter-active'), 260);
+		updateEmptyState();
+		widget.rebuildFromActions(Array.isArray(actionsLog) ? actionsLog : []);
+		const currentPhase = window.__timerController?.currentPhaseKey?.() || 'PREMATCH';
+		widget.handlePhaseChange(currentPhase);
+		return widget;
+	}
+
+	function removeWidget(id) {
+		const widget = registry.get(id);
+		if (!widget) return;
+		widget.destroy();
+		registry.delete(id);
+		updateEmptyState();
+	}
+
+	function onPhaseChange(event) {
+		const detail = event.detail || {};
+		const phase = detail.current;
+		registry.forEach(widget => widget.handlePhaseChange(phase));
+	}
+
+	function onTimerReset() {
+		registry.forEach(widget => widget.reset());
+		updateEmptyState();
+	}
+
+	function onScoreEntry(event) {
+		const detail = event.detail || {};
+		const entry = detail.entry;
+		if (!entry) return;
+		const delta = SCORE_ACTION_DELTAS[entry.action];
+		if (!delta) return;
+		const teamKey = detail.team;
+		if (teamKey !== 'team1' && teamKey !== 'team2') return;
+		const direction = detail.type === 'remove' ? -1 : 1;
+		registry.forEach(widget => widget.handleScoreEvent({
+			entry,
+			team: teamKey,
+			deltaGoals: delta.goals * direction,
+			deltaPoints: delta.points * direction
+		}));
+	}
+
+	function onScoresRecalculate(event) {
+		const actions = event.detail?.actions;
+		if (!Array.isArray(actions)) return;
+		registry.forEach(widget => widget.rebuildFromActions(actions));
+	}
+
+	function updateEmptyState() {
+		const hasWidgets = registry.size > 0;
+		if (shell) shell.classList.toggle('has-widgets', hasWidgets);
+		if (placeholder) placeholder.hidden = hasWidgets;
+		if (container) container.classList.toggle('has-widgets', hasWidgets);
+	}
+
+	function getTeamNames() {
+		const team1Button = document.getElementById('rename-team-1-button');
+		const team2Button = document.getElementById('rename-team-2-button');
+		return {
+			team1: team1Button ? team1Button.textContent.trim() : 'Team 1',
+			team2: team2Button ? team2Button.textContent.trim() : 'Team 2'
+		};
+	}
+
+	function mapPhaseToSection(phaseKey) {
+		switch (phaseKey) {
+			case 'H1': return 'H1';
+			case 'H2': return 'H2';
+			case 'ET1': return 'ET1';
+			case 'ET2': return 'ET2';
+			default: return null;
+		}
+	}
+
+	function getSectionsForPhase(phaseKey) {
+		return REQUIRED_SECTIONS_BY_PHASE[phaseKey] || [];
+	}
+
+	function createScoresByHalfWidget(id) {
+		const root = document.createElement('section');
+		root.className = 'stats-widget-card scores-by-half-widget widget-enter';
+		root.dataset.widgetId = id;
+		root.setAttribute('data-widget-type', 'scores-by-half');
+		root.setAttribute('role', 'region');
+		root.setAttribute('aria-label', 'Scores By Half');
+
+		const header = document.createElement('div');
+		header.className = 'stats-widget-header';
+
+		const title = document.createElement('h3');
+		title.className = 'stats-widget-title';
+		title.textContent = 'Scores By Half';
+
+		const removeBtn = document.createElement('button');
+		removeBtn.className = 'stats-widget-remove';
+		removeBtn.type = 'button';
+		removeBtn.setAttribute('aria-label', 'Remove Scores By Half widget');
+		removeBtn.textContent = '✕';
+		removeBtn.addEventListener('click', () => removeWidget(id));
+
+		header.appendChild(title);
+		header.appendChild(removeBtn);
+
+		const body = document.createElement('div');
+		body.className = 'stats-widget-body';
+
+		const caption = document.createElement('p');
+		caption.className = 'stats-widget-caption';
+		caption.textContent = 'Live totals for each team, organised by match phase.';
+
+		const placeholderMessage = document.createElement('div');
+		placeholderMessage.className = 'scores-by-half-placeholder';
+		const waitingText = document.createElement('p');
+		waitingText.className = 'scores-by-half-waiting';
+		waitingText.textContent = 'Waiting for match to start...';
+		const helpText = document.createElement('p');
+		helpText.className = 'scores-by-half-help';
+		helpText.textContent = 'Match scores will populate automatically when play begins.';
+		placeholderMessage.appendChild(waitingText);
+		placeholderMessage.appendChild(helpText);
+
+		const sectionsContainer = document.createElement('div');
+		sectionsContainer.className = 'scores-by-half-sections';
+
+		body.appendChild(caption);
+		body.appendChild(placeholderMessage);
+		body.appendChild(sectionsContainer);
+
+		root.appendChild(header);
+		root.appendChild(body);
+
+		const state = {
+			id,
+			phaseData: createPhaseStore(),
+			sections: {},
+			currentPhase: window.__timerController?.currentPhaseKey?.() || 'PREMATCH',
+			placeholder: placeholderMessage
+		};
+
+		function ensureSection(phaseKey) {
+			if (!phaseKey || state.sections[phaseKey] || !SECTION_LABELS[phaseKey]) return;
+			const section = document.createElement('section');
+			section.className = `scores-phase-section phase-${phaseKey.toLowerCase()}`;
+			section.setAttribute('data-phase', phaseKey);
+
+			const heading = document.createElement('h4');
+			heading.className = 'scores-phase-title';
+			heading.textContent = SECTION_LABELS[phaseKey];
+
+			const grid = document.createElement('div');
+			grid.className = 'scores-phase-grid';
+
+			const teamRows = {
+				team1: createTeamRow('team1'),
+				team2: createTeamRow('team2')
+			};
+
+			grid.appendChild(teamRows.team1.row);
+			grid.appendChild(teamRows.team2.row);
+
+			section.appendChild(heading);
+			section.appendChild(grid);
+
+			insertSectionInOrder(section, phaseKey);
+			state.sections[phaseKey] = { container: section, teamRows };
+
+			if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+				section.classList.add('phase-enter');
+				requestAnimationFrame(() => section.classList.add('phase-enter-active'));
+				setTimeout(() => section.classList.remove('phase-enter', 'phase-enter-active'), 280);
+			}
+			updateTeamNames();
+			refreshSectionScores(phaseKey);
+			updateWidgetPlaceholder();
+		}
+
+		function insertSectionInOrder(section, phaseKey) {
+			const insertionIndex = PHASE_ORDER.indexOf(phaseKey);
+			if (insertionIndex === -1 || sectionsContainer.children.length === 0) {
+				sectionsContainer.appendChild(section);
+				return;
+			}
+			for (let i = insertionIndex + 1; i < PHASE_ORDER.length; i++) {
+				const nextKey = PHASE_ORDER[i];
+				const target = state.sections[nextKey]?.container;
+				if (target) {
+					sectionsContainer.insertBefore(section, target);
+					return;
+				}
+			}
+			sectionsContainer.appendChild(section);
+		}
+
+		function createTeamRow(teamKey) {
+			const wrapper = document.createElement('div');
+			wrapper.className = 'scores-phase-row';
+
+			const name = document.createElement('span');
+			name.className = 'scores-phase-team';
+
+			const score = document.createElement('span');
+			score.className = 'scores-phase-score';
+			score.textContent = '0-00';
+
+			wrapper.appendChild(name);
+			wrapper.appendChild(score);
+
+			return { row: wrapper, nameEl: name, scoreEl: score };
+		}
+
+		function refreshSectionScores(phaseKey) {
+			const sectionStore = state.sections[phaseKey];
+			if (!sectionStore) return;
+			['team1', 'team2'].forEach(teamKey => {
+				const totals = state.phaseData[phaseKey]?.[teamKey];
+				if (!totals) return;
+				const scoreEl = sectionStore.teamRows[teamKey]?.scoreEl;
+				if (!scoreEl) return;
+				scoreEl.textContent = formatScore(totals.goals, totals.points);
+			});
+		}
+
+		function animateScore(teamKey, phaseKey) {
+			const sectionStore = state.sections[phaseKey];
+			if (!sectionStore) return;
+			const scoreEl = sectionStore.teamRows[teamKey]?.scoreEl;
+			if (!scoreEl || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+			scoreEl.classList.remove('score-flash');
+			void scoreEl.offsetWidth;
+			scoreEl.classList.add('score-flash');
+			setTimeout(() => scoreEl.classList.remove('score-flash'), 220);
+		}
+
+		function updateWidgetPlaceholder() {
+			if (!state.placeholder) return;
+			const hasSections = Object.keys(state.sections).length > 0;
+			state.placeholder.hidden = hasSections;
+		}
+
+		function updateTeamNames() {
+			const names = getTeamNames();
+			Object.values(state.sections).forEach(section => {
+				['team1', 'team2'].forEach(teamKey => {
+					const label = section.teamRows[teamKey]?.nameEl;
+					if (label) label.textContent = names[teamKey];
+				});
+			});
+		}
+
+		function handlePhaseChange(phaseKey) {
+			if (!phaseKey) return;
+			state.currentPhase = phaseKey;
+			const requiredSections = getSectionsForPhase(phaseKey);
+			requiredSections.forEach(ensureSection);
+			updateWidgetPlaceholder();
+		}
+
+		function handleScoreEvent(detail) {
+			const sectionKey = mapPhaseToSection(detail.entry?.phaseKey || state.currentPhase);
+			if (!sectionKey) return;
+			ensureSection(sectionKey);
+			const phaseStore = state.phaseData[sectionKey];
+			if (!phaseStore) return;
+			const teamStore = phaseStore[detail.team];
+			if (!teamStore) return;
+			teamStore.goals = Math.max(0, teamStore.goals + detail.deltaGoals);
+			teamStore.points = Math.max(0, teamStore.points + detail.deltaPoints);
+			refreshSectionScores(sectionKey);
+			animateScore(detail.team, sectionKey);
+			updateWidgetPlaceholder();
+		}
+
+		function rebuildFromActions(actions) {
+			state.phaseData = createPhaseStore();
+			state.sections = {};
+			sectionsContainer.innerHTML = '';
+			actions.forEach(entry => {
+				const delta = SCORE_ACTION_DELTAS[entry.action];
+				if (!delta || !entry.phaseKey) return;
+				const sectionKey = mapPhaseToSection(entry.phaseKey);
+				if (!sectionKey) return;
+				const teamKey = getTeamFromAction(entry);
+				if (teamKey !== 'team1' && teamKey !== 'team2') return;
+				ensureSection(sectionKey);
+				const phaseStore = state.phaseData[sectionKey];
+				const teamStore = phaseStore?.[teamKey];
+				if (!teamStore) return;
+				teamStore.goals = Math.max(0, teamStore.goals + delta.goals);
+				teamStore.points = Math.max(0, teamStore.points + delta.points);
+			});
+			Object.keys(state.sections).forEach(phaseKey => refreshSectionScores(phaseKey));
+			updateTeamNames();
+		handlePhaseChange(state.currentPhase);
+			updateWidgetPlaceholder();
+		}
+
+		function reset() {
+			state.phaseData = createPhaseStore();
+			state.sections = {};
+			state.currentPhase = 'PREMATCH';
+			sectionsContainer.innerHTML = '';
+			if (state.placeholder) state.placeholder.hidden = false;
+		}
+
+		function focusRemoveButton() {
+			try {
+				removeBtn.focus({ preventScroll: false });
+			} catch {}
+		}
+
+		return {
+			id,
+			root,
+			handlePhaseChange,
+			handleScoreEvent,
+			rebuildFromActions,
+			reset,
+			updateTeamNames,
+			focusRemoveButton,
+			destroy() {
+				if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+					root.classList.add('widget-exit');
+					setTimeout(() => root.remove(), 200);
+				} else {
+					root.remove();
+				}
+			}
+		};
+	}
+
+	function createPhaseStore() {
+		const bucket = () => ({ goals: 0, points: 0 });
+		return {
+			H1: { team1: bucket(), team2: bucket() },
+			H2: { team1: bucket(), team2: bucket() },
+			ET1: { team1: bucket(), team2: bucket() },
+			ET2: { team1: bucket(), team2: bucket() }
+		};
+	}
+
+	function formatScore(goals, points) {
+		return `${goals}-${String(points).padStart(2, '0')}`;
+	}
+
+	return {
+		init,
+		addWidget,
+		removeWidget,
+		onTeamNamesChanged() {
+			registry.forEach(widget => widget.updateTeamNames());
+		}
+	};
+})();
+
+// Legacy MatchWidgetManager retained for reference but no longer initialised.
+
+const WidgetCatalog = [
+	{
+		type: 'mini',
+		label: 'Mini Widget',
+		size: { cols: 1, rows: 1 },
+		color: '#34d399',
+		textColor: '#0f172a',
+		description: 'KPI metrics, single numbers',
+		category: 'test'
+	},
+	{
+		type: 'small',
+		label: 'Small Widget',
+		size: { cols: 2, rows: 1 },
+		color: '#60a5fa',
+		textColor: '#ffffff',
+		description: 'Small charts, score summaries',
+		category: 'test'
+	},
+	{
+		type: 'tall',
+		label: 'Tall Widget',
+		size: { cols: 1, rows: 2 },
+		color: '#a855f7',
+		textColor: '#ffffff',
+		description: 'Lists or rankings',
+		category: 'test'
+	},
+	{
+		type: 'medium',
+		label: 'Medium Widget',
+		size: { cols: 2, rows: 2 },
+		color: '#f97316',
+		textColor: '#ffffff',
+		description: 'Maps or key visuals',
+		category: 'test'
+	},
+	{
+		type: 'wide',
+		label: 'Wide Widget',
+		size: { cols: 3, rows: 1 },
+		color: '#f87171',
+		textColor: '#ffffff',
+		description: 'Time-based charts',
+		category: 'test'
+	},
+	{
+		type: 'large',
+		label: 'Large Widget',
+		size: { cols: 3, rows: 2 },
+		color: '#facc15',
+		textColor: '#0f172a',
+		description: 'Combined visual panels',
+		category: 'test'
+	},
+	{
+		type: 'scores-by-half',
+		label: 'Scores by Half',
+		size: { cols: 2, rows: 1 },
+		color: '#1d4ed8',
+		textColor: '#ffffff',
+		description: 'Displays team scoring per match phase.',
+		category: 'implemented'
+	}
+];
+
+const WidgetCatalogMap = new Map(WidgetCatalog.map(def => [def.type, def]));
+
+const SCORE_WIDGET_DELTAS = {
+	'Point - Score': { goals: 0, points: 1 },
+	'2-Point - Score': { goals: 0, points: 2 },
+	'Goal - Score': { goals: 1, points: 0 },
+	'Point - Score (Team 2)': { goals: 0, points: 1 },
+	'2-Point - Score (Team 2)': { goals: 0, points: 2 },
+	'Goal - Score (Team 2)': { goals: 1, points: 0 },
+	'Point - Against': { goals: 0, points: 1 },
+	'2-Point - Against': { goals: 0, points: 2 },
+	'Goal - Against': { goals: 1, points: 0 }
+};
+
+const ScorePhaseConfig = [
+	{ key: 'H1', label: 'FIRST HALF', rank: 1 },
+	{ key: 'H2', label: 'SECOND HALF', rank: 2 },
+	{ key: 'ET1', label: 'ET FIRST HALF', rank: 3 },
+	{ key: 'ET2', label: 'ET SECOND HALF', rank: 4 }
+];
+
+const ScorePhaseRank = ScorePhaseConfig.reduce((acc, cfg) => {
+	acc[cfg.key] = cfg.rank;
+	return acc;
+}, {});
+
+const TimerPhaseRank = {
+	PREMATCH: 0,
+	H1: 1,
+	HT: 1,
+	H2: 2,
+	FT: 2,
+	ET1: 3,
+	ET1_HT: 3,
+	ET2: 4,
+	FTET: 4
+};
+
+const TimerToScorePhase = {
+	H1: 'H1',
+	HT: 'H1',
+	H2: 'H2',
+	FT: 'H2',
+	ET1: 'ET1',
+	ET1_HT: 'ET1',
+	ET2: 'ET2',
+	FTET: 'ET2'
+};
+
+function formatScoreValue(goals, points) {
+	return `${goals}-${String(points).padStart(2, '0')}`;
+}
+
+function createPhaseTotalsMap() {
+	const base = () => ({
+		team1: { goals: 0, points: 0 },
+		team2: { goals: 0, points: 0 }
+	});
+	return {
+		H1: base(),
+		H2: base(),
+		ET1: base(),
+		ET2: base()
+	};
+}
+
+function cloneTotals(totals) {
+	return {
+		team1: { goals: totals.team1.goals, points: totals.team1.points },
+		team2: { goals: totals.team2.goals, points: totals.team2.points }
+	};
+}
+
+const ScoresByHalfModel = (() => {
+	const listeners = new Set();
+	let initialized = false;
+	let phaseTotals = createPhaseTotalsMap();
+	const reachedPhases = new Set();
+	let currentTimerPhase = 'PREMATCH';
+
+	function init() {
+		if (initialized) return;
+		initialized = true;
+		currentTimerPhase = window.__timerController?.currentPhaseKey?.() || 'PREMATCH';
+		rebuildTotalsFromActions(typeof window.actionsLog !== 'undefined' ? window.actionsLog : []);
+		document.addEventListener('timer:phase-change', handlePhaseChange);
+		document.addEventListener('timer:reset', handleTimerReset);
+		document.addEventListener('scores:entry', handleScoreEntry);
+		document.addEventListener('scores:recalculate', handleScoresRecalculate);
+	}
+
+	function handlePhaseChange(event) {
+		const detail = event.detail || {};
+		currentTimerPhase = detail.current || 'PREMATCH';
+		const mapped = mapTimerPhase(currentTimerPhase);
+		if (mapped) ensurePhaseTotals(mapped);
+		if (mapped) reachedPhases.add(mapped);
+		notify();
+	}
+
+	function handleTimerReset() {
+		phaseTotals = createPhaseTotalsMap();
+		reachedPhases.clear();
+		currentTimerPhase = 'PREMATCH';
+		notify();
+	}
+
+	function handleScoreEntry(event) {
+		const detail = event.detail || {};
+		const entry = detail.entry;
+		if (!entry) return;
+		const deltaInfo = SCORE_WIDGET_DELTAS[entry.action];
+		if (!deltaInfo) return;
+		const teamKey = detail.team === 'team2' ? 'team2' : 'team1';
+		const timerPhase = entry.phaseKey || currentTimerPhase;
+		const mapped = mapTimerPhase(timerPhase);
+		if (!mapped) return;
+		ensurePhaseTotals(mapped);
+		const totals = phaseTotals[mapped][teamKey];
+		const direction = detail.type === 'remove' ? -1 : 1;
+		totals.goals = Math.max(0, totals.goals + deltaInfo.goals * direction);
+		totals.points = Math.max(0, totals.points + deltaInfo.points * direction);
+		reachedPhases.add(mapped);
+		notify();
+	}
+
+	function handleScoresRecalculate(event) {
+		rebuildTotalsFromActions(event.detail?.actions);
+		notify();
+	}
+
+	function ensurePhaseTotals(key) {
+		if (!phaseTotals[key]) {
+			const base = () => ({
+				team1: { goals: 0, points: 0 },
+				team2: { goals: 0, points: 0 }
+			});
+			phaseTotals[key] = base();
+		}
+	}
+
+	function mapTimerPhase(timerPhase) {
+		return TimerToScorePhase[timerPhase] || null;
+	}
+
+	function buildSnapshot() {
+		const teamNames = readTeamNames();
+		const currentRank = TimerPhaseRank[currentTimerPhase] ?? 0;
+		const phases = [];
+
+		for (const cfg of ScorePhaseConfig) {
+			const sourceTotals = phaseTotals[cfg.key] || createPhaseTotalsMap()[cfg.key] || {
+				team1: { goals: 0, points: 0 },
+				team2: { goals: 0, points: 0 }
+			};
+			const totals = cloneTotals(sourceTotals);
+			const hasActivity = Boolean(
+				totals.team1.goals ||
+				totals.team1.points ||
+				totals.team2.goals ||
+				totals.team2.points
+			);
+			const reached = reachedPhases.has(cfg.key);
+			const include = currentRank >= cfg.rank || reached || hasActivity;
+			if (!include) continue;
+
+			phases.push({
+				key: cfg.key,
+				label: cfg.label,
+				totals: {
+					team1: { ...totals.team1, formatted: formatScoreValue(totals.team1.goals, totals.team1.points) },
+					team2: { ...totals.team2, formatted: formatScoreValue(totals.team2.goals, totals.team2.points) }
+				}
+			});
+		}
+
+		const mappedCurrent = mapTimerPhase(currentTimerPhase);
+		let suggestedIndex = -1;
+		if (mappedCurrent) {
+			suggestedIndex = phases.findIndex(phase => phase.key === mappedCurrent);
+		}
+		if (suggestedIndex === -1 && phases.length) {
+			suggestedIndex = phases.length - 1;
+		}
+
+		return {
+			teamNames,
+			phases,
+			suggestedIndex,
+			isPrematch: phases.length === 0,
+			message: 'Start the clock and log scores'
+		};
+	}
+
+	function rebuildTotalsFromActions(actions) {
+		phaseTotals = createPhaseTotalsMap();
+		reachedPhases.clear();
+		if (Array.isArray(actions)) {
+			actions.forEach(entry => {
+				const delta = SCORE_WIDGET_DELTAS[entry.action];
+				if (!delta) return;
+				const team = getTeamFromAction(entry);
+				const teamKey = team === 'team2' ? 'team2' : 'team1';
+				const mapped = mapTimerPhase(entry.phaseKey);
+				if (!mapped) return;
+				ensurePhaseTotals(mapped);
+				const totals = phaseTotals[mapped][teamKey];
+				totals.goals += delta.goals;
+				totals.points += delta.points;
+				if (delta.goals || delta.points) reachedPhases.add(mapped);
+			});
+		}
+		const mappedCurrent = mapTimerPhase(currentTimerPhase);
+		if (mappedCurrent) {
+			ensurePhaseTotals(mappedCurrent);
+			reachedPhases.add(mappedCurrent);
+		}
+	}
+
+	function readTeamNames() {
+		const team1Button = document.getElementById('rename-team-1-button');
+		const team2Button = document.getElementById('rename-team-2-button');
+		return {
+			team1: team1Button ? team1Button.textContent.trim() : 'Team 1',
+			team2: team2Button ? team2Button.textContent.trim() : 'Team 2'
+		};
+	}
+
+	function notify() {
+		const snapshot = buildSnapshot();
+		listeners.forEach(listener => {
+			try {
+				listener(snapshot);
+			} catch (err) {
+				console.error('ScoresByHalf listener error:', err);
+			}
+		});
+	}
+
+	return {
+		subscribe(listener) {
+			init();
+			listeners.add(listener);
+			listener(buildSnapshot());
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+		notifyTeamNamesChanged() {
+			notify();
+		}
+	};
+})();
+
+class ScoresByHalfController {
+	constructor(widget, elements) {
+		this.widget = widget;
+		this.panelEl = elements.panel;
+		this.headerEl = elements.header;
+		this.layoutEl = elements.layout;
+		this.phaseLabelEl = elements.phaseLabel;
+		this.messageEl = elements.message;
+		this.leftNameEl = elements.leftName;
+		this.leftScoreEl = elements.leftScore;
+		this.rightNameEl = elements.rightName;
+		this.rightScoreEl = elements.rightScore;
+		this.prevBtn = elements.prevBtn;
+		this.nextBtn = elements.nextBtn;
+		this.prevCell = elements.prevCell;
+		this.nextCell = elements.nextCell;
+		this.viewIndex = -1;
+		this.snapshot = { phases: [] };
+		this.isTransitioning = false;
+
+		this.handlePrev = () => this.shiftPhase(-1);
+		this.handleNext = () => this.shiftPhase(1);
+
+		this.prevBtn.addEventListener('click', this.handlePrev);
+		this.nextBtn.addEventListener('click', this.handleNext);
+
+		this.unsubscribe = ScoresByHalfModel.subscribe(snapshot => {
+			this.applySnapshot(snapshot);
+		});
+	}
+
+	destroy() {
+		this.unsubscribe?.();
+		this.prevBtn.removeEventListener('click', this.handlePrev);
+		this.nextBtn.removeEventListener('click', this.handleNext);
+	}
+
+	applySnapshot(snapshot) {
+		this.snapshot = snapshot;
+		if (snapshot.isPrematch) {
+			this.viewIndex = -1;
+			this.showPrematch(snapshot.message);
+			return;
+		}
+
+		const phases = snapshot.phases;
+		let targetIndex = this.viewIndex;
+		if (targetIndex < 0 || targetIndex >= phases.length) {
+			targetIndex = snapshot.suggestedIndex >= 0 ? snapshot.suggestedIndex : 0;
+		} else {
+			const currentKey = phases[targetIndex]?.key;
+			const located = phases.findIndex(phase => phase.key === currentKey);
+			if (located === -1) {
+				targetIndex = snapshot.suggestedIndex >= 0 ? snapshot.suggestedIndex : phases.length - 1;
+			} else {
+				targetIndex = located;
+			}
+		}
+
+		targetIndex = Math.max(0, Math.min(phases.length - 1, targetIndex));
+		const direction = this.viewIndex < 0 ? 0 : Math.sign(targetIndex - this.viewIndex);
+		if (direction !== 0) {
+			this.animateToPhase(targetIndex, direction);
+		} else {
+			this.viewIndex = targetIndex;
+			this.renderPhase(phases[targetIndex]);
+		}
+	}
+
+	showPrematch(message) {
+		this.disableArrows(true);
+		this.panelEl.style.display = 'none';
+		this.headerEl.style.display = 'none';
+		this.layoutEl.style.display = 'none';
+		this.phaseLabelEl.textContent = '';
+		this.messageEl.textContent = message;
+		this.messageEl.style.display = 'flex';
+		this.leftScoreEl.textContent = '0-00';
+		this.rightScoreEl.textContent = '0-00';
+		this.prevBtn.tabIndex = -1;
+		this.nextBtn.tabIndex = -1;
+		this.prevBtn.disabled = true;
+		this.nextBtn.disabled = true;
+		this.prevBtn.style.opacity = '0';
+		this.nextBtn.style.opacity = '0';
+		this.prevCell.style.visibility = 'hidden';
+		this.nextCell.style.visibility = 'hidden';
+		this.panelEl.style.transition = '';
+		this.panelEl.style.transform = '';
+		this.panelEl.style.opacity = '';
+	}
+
+	renderPhase(phase) {
+		this.viewIndex = this.snapshot.phases.findIndex(p => p.key === phase.key);
+		this.messageEl.style.display = 'none';
+		this.panelEl.style.display = 'flex';
+		this.headerEl.style.display = '';
+		this.layoutEl.style.display = 'grid';
+		this.phaseLabelEl.textContent = phase.label;
+		this.leftNameEl.textContent = this.snapshot.teamNames.team1;
+		this.rightNameEl.textContent = this.snapshot.teamNames.team2;
+		this.leftNameEl.title = this.snapshot.teamNames.team1;
+		this.rightNameEl.title = this.snapshot.teamNames.team2;
+		this.leftScoreEl.textContent = phase.totals.team1.formatted;
+		this.rightScoreEl.textContent = phase.totals.team2.formatted;
+		this.panelEl.style.transition = '';
+		this.panelEl.style.transform = '';
+		this.panelEl.style.opacity = '';
+		this.isTransitioning = false;
+		this.updateArrows();
+	}
+
+	updateArrows() {
+		const phases = this.snapshot.phases;
+		const hasPrev = this.viewIndex > 0;
+		const hasNext = this.viewIndex < phases.length - 1;
+
+		this.prevBtn.disabled = this.isTransitioning || !hasPrev;
+		this.nextBtn.disabled = this.isTransitioning || !hasNext;
+
+		this.prevBtn.setAttribute('aria-hidden', hasPrev ? 'false' : 'true');
+		this.nextBtn.setAttribute('aria-hidden', hasNext ? 'false' : 'true');
+
+		this.prevBtn.tabIndex = hasPrev ? 0 : -1;
+		this.nextBtn.tabIndex = hasNext ? 0 : -1;
+
+		this.prevBtn.style.opacity = hasPrev ? '1' : '0';
+		this.nextBtn.style.opacity = hasNext ? '1' : '0';
+		this.prevBtn.style.visibility = hasPrev ? 'visible' : 'hidden';
+		this.nextBtn.style.visibility = hasNext ? 'visible' : 'hidden';
+		this.prevCell.style.visibility = hasPrev ? 'visible' : 'hidden';
+		this.nextCell.style.visibility = hasNext ? 'visible' : 'hidden';
+	}
+
+	disableArrows(state) {
+		this.isTransitioning = state;
+		this.updateArrows();
+	}
+
+	shiftPhase(direction) {
+		if (this.isTransitioning) return;
+		const nextIndex = this.viewIndex + direction;
+		if (nextIndex < 0 || nextIndex >= this.snapshot.phases.length) return;
+		this.animateToPhase(nextIndex, direction);
+	}
+
+	animateToPhase(targetIndex, direction) {
+		if (this.isTransitioning) return;
+		this.disableArrows(true);
+		const exitDistance = direction > 0 ? -32 : 32;
+		const enterDistance = direction > 0 ? 32 : -32;
+		const phase = this.snapshot.phases[targetIndex];
+
+		const handleExit = () => {
+			this.panelEl.removeEventListener('transitionend', handleExit);
+			this.panelEl.style.transition = 'none';
+			this.panelEl.style.transform = `translateX(${enterDistance}px)`;
+			this.panelEl.style.opacity = '0.25';
+			this.renderPhase(phase);
+
+			requestAnimationFrame(() => {
+				const handleEnter = () => {
+					this.panelEl.removeEventListener('transitionend', handleEnter);
+					this.panelEl.style.transition = '';
+					this.panelEl.style.transform = '';
+					this.panelEl.style.opacity = '';
+					this.disableArrows(false);
+				};
+
+				this.panelEl.addEventListener('transitionend', handleEnter, { once: true });
+				this.panelEl.style.transition = 'transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 240ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+				this.panelEl.style.transform = 'translateX(0)';
+				this.panelEl.style.opacity = '1';
+			});
+		};
+
+		this.panelEl.addEventListener('transitionend', handleExit, { once: true });
+		this.panelEl.style.transition = 'transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+		this.panelEl.style.transform = `translateX(${exitDistance}px)`;
+		this.panelEl.style.opacity = '0';
+	}
+}
+
+function showDashboardMessage(message) {
+	if (typeof TimerController !== 'undefined' && typeof TimerController.showToast === 'function') {
+		TimerController.showToast(message);
+	} else {
+		window.alert(message);
+	}
+}
+
+function debounce(fn, delay = 150) {
+	let timer;
+	return function debounced(...args) {
+		clearTimeout(timer);
+		timer = setTimeout(() => fn.apply(this, args), delay);
+	};
+}
+
+class DashboardGridManager {
+	constructor(options) {
+		this.key = options.key;
+		this.shell = options.shell;
+		this.gridEl = options.grid;
+		this.placeholderEl = options.placeholder;
+		this.toolbarEl = options.toolbar;
+		this.addButtons = options.addButtons;
+		this.editButton = options.editButton;
+		this.columns = options.columns || 4;
+		this.gap = options.gap || 16;
+		this.storageKey = `dashboardLayout:${this.key}`;
+		this.widgets = [];
+		this.totalRows = 0;
+		this.metrics = null;
+		this.editing = false;
+		this.dragState = null;
+		this.handlePointerMoveBound = this.handlePointerMove.bind(this);
+		this.handlePointerUpBound = this.handlePointerUp.bind(this);
+		this.handlePointerCancelBound = this.handlePointerCancel.bind(this);
+	}
+
+	init() {
+		if (!this.shell || !this.gridEl) return;
+
+		this.addButtons.forEach(btn => {
+			btn.addEventListener('click', (event) => {
+				event.preventDefault();
+				DashboardController.requestAdd(this.key);
+			});
+		});
+
+		if (this.editButton) {
+			this.editButton.addEventListener('click', (event) => {
+				event.preventDefault();
+				this.toggleEditMode();
+			});
+		}
+
+		this.loadLayout();
+		this.updateShellState();
+		this.refreshLayout(true);
+		this.updateAllEditStates();
+	}
+
+	getDefinition(type) {
+		return WidgetCatalogMap.get(type);
+	}
+
+	isEditing() {
+		return this.editing;
+	}
+
+	setEditMode(state) {
+		const nextState = state && this.widgets.length > 0;
+		if (this.editing === nextState) return;
+		this.editing = nextState;
+		this.shell.classList.toggle('editing', this.editing);
+		if (this.editButton) {
+			this.editButton.textContent = this.editing ? 'Done' : 'Edit';
+		}
+		this.addButtons.forEach(btn => {
+			btn.disabled = this.editing;
+		});
+		this.updateAllEditStates();
+		if (!this.editing && this.dragState) {
+			this.finishDrag(false, true);
+		}
+	}
+
+	toggleEditMode() {
+		this.setEditMode(!this.editing);
+	}
+
+	updateAllEditStates() {
+		this.widgets.forEach(widget => this.updateWidgetEditState(widget));
+	}
+
+	updateWidgetEditState(widget) {
+		if (!widget) return;
+		const isEditing = this.editing;
+		const overlay = widget.editOverlay;
+		const titleEl = widget.editTitle;
+		const subtitleEl = widget.editSubtitle;
+		if (overlay) {
+			overlay.style.background = widget.definition.color;
+			overlay.style.color = widget.definition.textColor || '#ffffff';
+			if (titleEl) titleEl.textContent = widget.definition.label;
+			if (subtitleEl) subtitleEl.textContent = isEditing ? 'Drag to reposition' : '';
+		}
+		widget.element.tabIndex = isEditing ? 0 : -1;
+		if (isEditing) {
+			widget.element.setAttribute('role', 'button');
+			widget.element.setAttribute('aria-label', `${widget.definition.label} widget. Drag to reposition.`);
+		} else {
+			widget.element.setAttribute('role', 'group');
+			widget.element.setAttribute('aria-label', `${widget.definition.label} widget.`);
+		}
+	}
+
+	tryAddWidget(type) {
+		const definition = this.getDefinition(type);
+		if (!definition) return false;
+
+		const id = `${type}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+		const widget = this.createWidget(definition, id, Date.now(), { justAdded: true });
+
+		const candidateList = [...this.widgets, widget];
+		const pack = this.packWidgets(candidateList);
+		if (!pack) {
+			widget.element.remove();
+			showDashboardMessage('No space available — remove a widget or resize to add new.');
+			return false;
+		}
+
+		this.widgets = candidateList;
+		this.recalculateOrders();
+		this.applyPack(pack);
+		this.updateShellState();
+		this.updateAllEditStates();
+		return true;
+	}
+
+	removeWidget(id) {
+		const index = this.widgets.findIndex(widget => widget.id === id);
+		if (index === -1) return;
+
+		const widget = this.widgets[index];
+		if (widget.controller && typeof widget.controller.destroy === 'function') {
+			widget.controller.destroy();
+		}
+		widget.element.classList.add('dashboard-widget-exit');
+
+		setTimeout(() => {
+			widget.element.remove();
+			this.widgets.splice(index, 1);
+
+			if (this.widgets.length) {
+				this.recalculateOrders();
+				const pack = this.packWidgets(this.widgets);
+				if (pack) this.applyPack(pack);
+			} else {
+				this.totalRows = 0;
+				this.gridEl.style.height = '0px';
+				this.saveLayout();
+			}
+
+			this.updateShellState();
+			if (!this.widgets.length) {
+				this.setEditMode(false);
+			}
+			this.updateAllEditStates();
+		}, 180);
+	}
+
+	loadLayout() {
+		let stored = [];
+		try {
+			stored = JSON.parse(localStorage.getItem(this.storageKey) || '[]');
+		} catch {
+			stored = [];
+		}
+
+		const loadedWidgets = [];
+		for (const entry of stored) {
+			const def = this.getDefinition(entry.type);
+			if (!def) continue;
+			const widget = this.createWidget(def, entry.id, entry.order || Date.now());
+			loadedWidgets.push(widget);
+		}
+
+		if (!loadedWidgets.length) {
+			this.widgets = [];
+			this.gridEl.innerHTML = '';
+			return;
+		}
+
+		const pack = this.packWidgets(loadedWidgets);
+		if (!pack) {
+			this.widgets = [];
+			this.gridEl.innerHTML = '';
+			localStorage.removeItem(this.storageKey);
+			return;
+		}
+
+		this.widgets = loadedWidgets;
+		this.applyPack(pack);
+		this.recalculateOrders();
+		this.updateAllEditStates();
+	}
+
+	saveLayout() {
+		const payload = this.widgets.map(widget => ({
+			id: widget.id,
+			type: widget.type,
+			order: widget.order
+		}));
+		try {
+			localStorage.setItem(this.storageKey, JSON.stringify(payload));
+		} catch {}
+	}
+
+	updateShellState() {
+		const hasWidgets = this.widgets.length > 0;
+		this.shell.classList.toggle('has-widgets', hasWidgets);
+		if (this.placeholderEl) {
+			this.placeholderEl.hidden = hasWidgets;
+		}
+		if (this.editButton) {
+			this.editButton.disabled = !hasWidgets;
+			this.editButton.textContent = this.editing ? 'Done' : 'Edit';
+		}
+		if (!hasWidgets) {
+			this.setEditMode(false);
+		}
+	}
+
+	refreshLayout(forcePack = false) {
+		if (forcePack && this.widgets.length) {
+			const pack = this.packWidgets(this.widgets);
+			if (pack) {
+				this.applyPack(pack);
+				return;
+			}
+		}
+
+		if (!this.widgets.length) {
+			this.gridEl.style.height = '0px';
+			return;
+		}
+
+		const metrics = this.computeMetrics();
+		if (!metrics) return;
+		this.metrics = metrics;
+		this.widgets.forEach(widget => this.applyWidgetMetrics(widget, metrics));
+		const height = this.totalRows > 0
+			? this.totalRows * metrics.cell + Math.max(this.totalRows - 1, 0) * metrics.gap
+			: 0;
+		this.gridEl.style.height = `${height}px`;
+	}
+
+	createWidget(definition, id, order, options = {}) {
+		const element = document.createElement('div');
+		element.className = 'dashboard-widget dashboard-widget-enter';
+		element.dataset.widgetId = id;
+		element.setAttribute('aria-label', definition.label);
+		element.setAttribute('role', 'group');
+		element.style.background = definition.color;
+		element.style.color = definition.textColor || '#ffffff';
+
+		const content = document.createElement('div');
+		content.className = 'dashboard-widget-content';
+		content.classList.add('dashboard-widget-inner');
+		content.dataset.layout = 'stack';
+
+		const editOverlay = document.createElement('div');
+		editOverlay.className = 'dashboard-widget-edit-overlay';
+
+		const overlayTitle = document.createElement('p');
+		overlayTitle.className = 'dashboard-widget-edit-title';
+		overlayTitle.textContent = definition.label;
+
+		const overlaySubtitle = document.createElement('p');
+		overlaySubtitle.className = 'dashboard-widget-edit-subtitle';
+		overlaySubtitle.textContent = 'Drag to reposition';
+
+		editOverlay.appendChild(overlayTitle);
+		editOverlay.appendChild(overlaySubtitle);
+
+		const removeBtn = document.createElement('button');
+		removeBtn.type = 'button';
+		removeBtn.className = 'dashboard-widget-remove';
+		removeBtn.setAttribute('aria-label', `Remove ${definition.label}`);
+		removeBtn.textContent = '✕';
+		removeBtn.addEventListener('click', (event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			if (this.editing) {
+				this.removeWidget(id);
+			}
+		});
+
+		element.appendChild(content);
+		element.appendChild(editOverlay);
+		element.appendChild(removeBtn);
+		this.gridEl.appendChild(element);
+
+		requestAnimationFrame(() => {
+			element.classList.add('dashboard-widget-enter-active');
+			setTimeout(() => {
+				element.classList.remove('dashboard-widget-enter');
+				element.classList.remove('dashboard-widget-enter-active');
+			}, 220);
+		});
+
+		let controller = null;
+
+		if (definition.type === 'scores-by-half') {
+			element.classList.add('scores-by-half-widget');
+			content.dataset.layout = 'fill';
+			content.classList.add('sbh-content');
+
+			const panel = document.createElement('div');
+			panel.className = 'sbh-panel';
+
+			const header = document.createElement('div');
+			header.className = 'sbh-header';
+
+			const phaseLabel = document.createElement('span');
+			phaseLabel.className = 'sbh-phase-label';
+			header.appendChild(phaseLabel);
+
+			const layout = document.createElement('div');
+			layout.className = 'sbh-layout';
+
+			const prevCell = document.createElement('div');
+			prevCell.className = 'sbh-cell sbh-cell-nav sbh-cell-nav-prev';
+			const prevBtn = document.createElement('button');
+			prevBtn.type = 'button';
+			prevBtn.className = 'sbh-nav-button sbh-nav-prev';
+			prevBtn.setAttribute('aria-label', 'View previous phase');
+			prevBtn.innerHTML = '<span aria-hidden="true">&#x2039;</span>';
+			prevBtn.disabled = true;
+			prevBtn.tabIndex = -1;
+			prevCell.appendChild(prevBtn);
+
+			const leftCell = document.createElement('div');
+			leftCell.className = 'sbh-cell sbh-cell-team sbh-cell-team-left';
+			const leftGroup = document.createElement('div');
+			leftGroup.className = 'sbh-team-group';
+			const leftName = document.createElement('span');
+			leftName.className = 'sbh-team';
+			leftName.textContent = 'Team 1';
+			leftName.title = 'Team 1';
+			const leftScore = document.createElement('span');
+			leftScore.className = 'sbh-score';
+			leftScore.textContent = '0-00';
+			leftGroup.append(leftName, leftScore);
+			leftCell.appendChild(leftGroup);
+
+			const dividerCell = document.createElement('div');
+			dividerCell.className = 'sbh-cell sbh-cell-divider';
+			const dividerLine = document.createElement('span');
+			dividerLine.className = 'sbh-divider-line';
+			dividerCell.appendChild(dividerLine);
+
+			const rightCell = document.createElement('div');
+			rightCell.className = 'sbh-cell sbh-cell-team sbh-cell-team-right';
+			const rightGroup = document.createElement('div');
+			rightGroup.className = 'sbh-team-group';
+			const rightName = document.createElement('span');
+			rightName.className = 'sbh-team';
+			rightName.textContent = 'Team 2';
+			rightName.title = 'Team 2';
+			const rightScore = document.createElement('span');
+			rightScore.className = 'sbh-score';
+			rightScore.textContent = '0-00';
+			rightGroup.append(rightName, rightScore);
+			rightCell.appendChild(rightGroup);
+
+			const nextCell = document.createElement('div');
+			nextCell.className = 'sbh-cell sbh-cell-nav sbh-cell-nav-next';
+			const nextBtn = document.createElement('button');
+			nextBtn.type = 'button';
+			nextBtn.className = 'sbh-nav-button sbh-nav-next';
+			nextBtn.setAttribute('aria-label', 'View next phase');
+			nextBtn.innerHTML = '<span aria-hidden="true">&#x203A;</span>';
+			nextBtn.disabled = true;
+			nextBtn.tabIndex = -1;
+			nextCell.appendChild(nextBtn);
+
+			layout.append(prevCell, leftCell, dividerCell, rightCell, nextCell);
+
+			panel.append(header, layout);
+			content.append(panel);
+
+			const message = document.createElement('div');
+			message.className = 'sbh-message';
+			message.textContent = 'Start the clock and log scores';
+
+			content.append(message);
+
+			// Default to prematch view
+			header.style.display = 'none';
+			layout.style.display = 'none';
+			message.style.display = 'flex';
+
+			controller = new ScoresByHalfController(null, {
+				panel,
+				header,
+				layout,
+				phaseLabel,
+				message,
+				leftName,
+				leftScore,
+				rightName,
+				rightScore,
+				prevBtn,
+				nextBtn,
+				prevCell,
+				nextCell
+			});
+		} else {
+			const name = document.createElement('p');
+			name.className = 'dashboard-widget-name';
+			name.textContent = definition.label;
+
+			const size = document.createElement('p');
+			size.className = 'dashboard-widget-size';
+			size.textContent = `${definition.size.cols}x${definition.size.rows}`;
+
+			content.appendChild(name);
+			content.appendChild(size);
+		}
+
+		const widget = {
+			id,
+			type: definition.type,
+			cols: definition.size.cols,
+			rows: definition.size.rows,
+			order,
+			definition,
+			element,
+			editOverlay,
+			editTitle: overlayTitle,
+			editSubtitle: overlaySubtitle,
+			controller,
+			justAdded: !!options.justAdded
+		};
+		if (controller) {
+			controller.widget = widget;
+		}
+
+		element.tabIndex = -1;
+		element.addEventListener('pointerdown', (evt) => this.handleWidgetPointerDown(widget, evt));
+		element.addEventListener('keydown', (evt) => this.handleWidgetKeyDown(widget, evt));
+
+		this.updateWidgetEditState(widget);
+
+		return widget;
+	}
+
+	packWidgets(list) {
+		const occupied = [];
+		const placements = new Map();
+		let maxRow = -1;
+
+		const sorted = [...list].sort((a, b) => (a.order || 0) - (b.order || 0));
+		for (const widget of sorted) {
+			const slot = this.findSlot(occupied, widget.cols, widget.rows);
+			if (!slot) return null;
+			this.markCells(occupied, slot.row, slot.col, widget.cols, widget.rows);
+			placements.set(widget.id, slot);
+			maxRow = Math.max(maxRow, slot.row + widget.rows - 1);
+		}
+
+		return { placements, rows: maxRow + 1 };
+	}
+
+	findSlot(occupied, cols, rows) {
+		const maxSearchRows = Math.max(occupied.length + rows + 4, rows + 4);
+		for (let row = 0; row < maxSearchRows; row++) {
+			for (let col = 0; col <= this.columns - cols; col++) {
+				if (this.canPlace(occupied, row, col, cols, rows)) {
+					return { row, col };
+				}
+			}
+		}
+		return null;
+	}
+
+	canPlace(occupied, row, col, cols, rows) {
+		for (let r = row; r < row + rows; r++) {
+			const line = occupied[r];
+			for (let c = col; c < col + cols; c++) {
+				if (line && line[c]) return false;
+			}
+		}
+		return true;
+	}
+
+	markCells(occupied, row, col, cols, rows) {
+		for (let r = row; r < row + rows; r++) {
+			if (!occupied[r]) {
+				occupied[r] = new Array(this.columns).fill(false);
+			}
+			for (let c = col; c < col + cols; c++) {
+				occupied[r][c] = true;
+			}
+		}
+	}
+
+	applyPack(pack) {
+		this.totalRows = pack.rows;
+		this.widgets.forEach(widget => {
+			const placement = pack.placements.get(widget.id);
+			if (!placement) return;
+			widget.row = placement.row;
+			widget.col = placement.col;
+		});
+
+		const metrics = this.computeMetrics();
+		if (!metrics) {
+			this.metrics = null;
+			this.widgets.forEach(widget => { widget.justAdded = false; });
+			this.saveLayout();
+			return;
+		}
+		this.metrics = metrics;
+
+		this.widgets.forEach(widget => {
+			this.applyWidgetMetrics(widget, metrics);
+		});
+
+		const height = this.totalRows > 0
+			? this.totalRows * metrics.cell + Math.max(this.totalRows - 1, 0) * metrics.gap
+			: 0;
+		this.gridEl.style.height = `${height}px`;
+		this.widgets.forEach(widget => { widget.justAdded = false; });
+		this.saveLayout();
+		this.updateAllEditStates();
+	}
+
+	applyWidgetMetrics(widget, metrics) {
+		const width = widget.cols * metrics.cell + (widget.cols - 1) * metrics.gap;
+		const height = widget.rows * metrics.cell + (widget.rows - 1) * metrics.gap;
+		const x = widget.col * (metrics.cell + metrics.gap);
+		const y = widget.row * (metrics.cell + metrics.gap);
+		widget.element.style.width = `${width}px`;
+		widget.element.style.height = `${height}px`;
+		widget.element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+	}
+
+	computeMetrics() {
+		const baseWidth = this.gridEl.clientWidth || this.shell.clientWidth || this.shell.offsetWidth;
+		if (!baseWidth) return null;
+		const gap = this.gap;
+		const rawCell = (baseWidth - gap * (this.columns - 1)) / this.columns;
+		const cell = Math.max(140, Math.min(rawCell, 220));
+		return { cell, gap };
+	}
+
+	recalculateOrders() {
+		this.widgets.forEach((widget, index) => {
+			widget.order = index;
+		});
+	}
+
+	packCurrentWidgets() {
+		if (!this.widgets.length) {
+			this.gridEl.style.height = '0px';
+			this.saveLayout();
+			return;
+		}
+		const pack = this.packWidgets(this.widgets);
+		if (pack) this.applyPack(pack);
+	}
+
+	generatePreviewPack(candidate, desiredRow, desiredCol) {
+		const placements = new Map();
+		const occupied = [];
+		const col = Math.max(0, Math.min(this.columns - candidate.cols, desiredCol));
+		const row = Math.max(0, desiredRow);
+		this.markCells(occupied, row, col, candidate.cols, candidate.rows);
+		placements.set(candidate.id, { row, col });
+
+		const sorted = [...this.widgets].sort((a, b) => (a.order || 0) - (b.order || 0));
+		let maxRow = row + candidate.rows - 1;
+		for (const widget of sorted) {
+			const slot = this.findSlot(occupied, widget.cols, widget.rows);
+			if (!slot) return null;
+			this.markCells(occupied, slot.row, slot.col, widget.cols, widget.rows);
+			placements.set(widget.id, slot);
+			maxRow = Math.max(maxRow, slot.row + widget.rows - 1);
+		}
+
+		return { placements, rows: maxRow + 1 };
+	}
+
+	applyPreviewPack(pack, candidate) {
+		if (!pack) return;
+		const metrics = this.metrics || this.computeMetrics();
+		if (!metrics) return;
+
+		this.widgets.forEach(widget => {
+			const placement = pack.placements.get(widget.id);
+			if (!placement) return;
+			const width = widget.cols * metrics.cell + (widget.cols - 1) * metrics.gap;
+			const height = widget.rows * metrics.cell + (widget.rows - 1) * metrics.gap;
+			const x = placement.col * (metrics.cell + metrics.gap);
+			const y = placement.row * (metrics.cell + metrics.gap);
+			widget.element.style.width = `${width}px`;
+			widget.element.style.height = `${height}px`;
+			widget.element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+		});
+
+		const candidatePlacement = pack.placements.get(candidate.id);
+		if (candidatePlacement) {
+			this.positionDraggedWidget(candidate, candidatePlacement.col, candidatePlacement.row);
+		}
+
+		const height = pack.rows > 0
+			? pack.rows * metrics.cell + Math.max(pack.rows - 1, 0) * metrics.gap
+			: 0;
+		this.gridEl.style.height = `${height}px`;
+	}
+
+	restoreFromSnapshot(snapshot, candidate) {
+		if (!snapshot) return;
+		const allWidgets = [...this.widgets, candidate].filter(widget => {
+			return snapshot.has(widget.id);
+		});
+
+		allWidgets.forEach(widget => {
+			const entry = snapshot.get(widget.id);
+			if (entry) {
+				widget.order = entry.order;
+				widget.row = entry.row;
+				widget.col = entry.col;
+			}
+		});
+
+		allWidgets.sort((a, b) => (a.order || 0) - (b.order || 0));
+		this.widgets.length = 0;
+		this.widgets.push(...allWidgets);
+		const pack = this.packWidgets(this.widgets);
+		if (pack) this.applyPack(pack);
+		this.updateAllEditStates();
+	}
+
+	updateOrdersFromPack(pack) {
+		this.widgets.forEach(widget => {
+			const placement = pack.placements.get(widget.id);
+			if (placement) {
+				widget.order = placement.row * this.columns + placement.col;
+			}
+		});
+		this.widgets.sort((a, b) => (a.order || 0) - (b.order || 0));
+	}
+
+	buildOccupancy() {
+		const occupancy = [];
+		this.widgets.forEach(widget => {
+			const startRow = widget.row ?? 0;
+			const startCol = widget.col ?? 0;
+			for (let r = startRow; r < startRow + widget.rows; r++) {
+				if (!occupancy[r]) occupancy[r] = new Array(this.columns).fill(false);
+				for (let c = startCol; c < startCol + widget.cols; c++) {
+					occupancy[r][c] = true;
+				}
+			}
+		});
+		return occupancy;
+	}
+
+	isPlacementValid(widget, row, col) {
+		if (col < 0 || col + widget.cols > this.columns) return false;
+		if (row < 0) return false;
+		const occupancy = this.buildOccupancy();
+		for (let r = row; r < row + widget.rows; r++) {
+			for (let c = col; c < col + widget.cols; c++) {
+				if (occupancy[r] && occupancy[r][c]) return false;
+			}
+		}
+		return true;
+	}
+
+	positionDraggedWidget(widget, col, row) {
+		const drag = this.dragState;
+		const metrics = drag?.metrics || this.metrics || this.computeMetrics();
+		if (!metrics) return;
+		const x = col * (metrics.cell + metrics.gap);
+		const y = row * (metrics.cell + metrics.gap);
+		widget.element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) scale(1.05)`;
+	}
+
+	calculateInsertionIndex(row, col) {
+		for (let i = 0; i < this.widgets.length; i++) {
+			const w = this.widgets[i];
+			const wRow = w.row ?? 0;
+			const wCol = w.col ?? 0;
+			if (row < wRow) return i;
+			if (row === wRow && col < wCol) return i;
+		}
+		return this.widgets.length;
+	}
+
+	startDragSession(drag) {
+		const widget = drag.widget;
+		drag.originIndex = drag.originIndex ?? this.widgets.findIndex(w => w.id === widget.id);
+		drag.originCol = widget.col ?? 0;
+		drag.originRow = widget.row ?? 0;
+		drag.snapshot = new Map(this.widgets.map(w => [w.id, {
+			order: w.order ?? 0,
+			row: w.row ?? 0,
+			col: w.col ?? 0
+		}]));
+		if (!drag.snapshot.has(widget.id)) {
+			drag.snapshot.set(widget.id, {
+				order: widget.order ?? drag.snapshot.size,
+				row: widget.row ?? 0,
+				col: widget.col ?? 0
+			});
+		}
+		this.widgets = this.widgets.filter(w => w.id !== widget.id);
+		this.recalculateOrders();
+		this.packCurrentWidgets();
+		drag.metrics = this.metrics || this.computeMetrics();
+		drag.gridRect = this.gridEl.getBoundingClientRect();
+		widget.element.classList.add('is-dragging');
+		widget.element.classList.remove('drag-valid', 'drag-invalid');
+		widget.element.style.pointerEvents = 'none';
+		widget.element.style.zIndex = '100';
+		this.positionDraggedWidget(widget, drag.originCol, drag.originRow);
+		drag.candidateCol = drag.originCol;
+		drag.candidateRow = drag.originRow;
+		drag.valid = true;
+	}
+
+	handleWidgetPointerDown(widget, event) {
+		if (!this.editing) return;
+		if (this.dragState) return;
+		if (event.pointerType !== 'touch' && event.button !== 0) return;
+		if (event.target.closest('.dashboard-widget-remove')) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const drag = {
+			mode: 'pointer',
+			widget,
+			pointerId: event.pointerId,
+			pointerType: event.pointerType,
+			startClientX: event.clientX,
+			startClientY: event.clientY,
+			originIndex: this.widgets.findIndex(w => w.id === widget.id),
+			active: false
+		};
+		this.dragState = drag;
+		if (event.pointerId != null && widget.element.setPointerCapture) {
+			widget.element.setPointerCapture(event.pointerId);
+		}
+		window.addEventListener('pointermove', this.handlePointerMoveBound, false);
+		window.addEventListener('pointerup', this.handlePointerUpBound, false);
+		window.addEventListener('pointercancel', this.handlePointerCancelBound, false);
+		if (event.pointerType === 'touch') {
+			drag.touchMoveBlocker = (moveEvent) => {
+				if (moveEvent.touches && moveEvent.touches.length > 1) return;
+				moveEvent.preventDefault();
+			};
+			drag.touchMoveOptions = { passive: false };
+			window.addEventListener('touchmove', drag.touchMoveBlocker, drag.touchMoveOptions);
+			drag.longPressTimeout = setTimeout(() => this.beginPointerDrag(event), 180);
+		} else {
+			this.beginPointerDrag(event);
+		}
+	}
+
+	beginPointerDrag(event) {
+		const drag = this.dragState;
+		if (!drag || drag.mode !== 'pointer') return;
+		if (drag.longPressTimeout) {
+			clearTimeout(drag.longPressTimeout);
+			drag.longPressTimeout = null;
+		}
+		if (drag.active) return;
+		drag.active = true;
+		this.startDragSession(drag);
+		this.updatePointerDrag(event);
+	}
+
+	handlePointerMove(event) {
+		const drag = this.dragState;
+		if (!drag || drag.mode !== 'pointer' || drag.pointerId !== event.pointerId) return;
+		if (!drag.active) {
+			const dx = event.clientX - drag.startClientX;
+			const dy = event.clientY - drag.startClientY;
+			if (drag.pointerType === 'touch') {
+				if (Math.hypot(dx, dy) > 10) {
+					this.beginPointerDrag(event);
+				}
+			} else {
+				this.beginPointerDrag(event);
+			}
+			return;
+		}
+		this.updatePointerDrag(event);
+	}
+
+	handlePointerUp(event) {
+		const drag = this.dragState;
+		if (!drag || drag.mode !== 'pointer' || drag.pointerId !== event.pointerId) return;
+		event.preventDefault();
+		if (!drag.active) {
+			this.cancelPendingDrag();
+			return;
+		}
+		this.finishDrag(drag.valid);
+	}
+
+	handlePointerCancel(event) {
+		const drag = this.dragState;
+		if (!drag || drag.mode !== 'pointer' || drag.pointerId !== event.pointerId) return;
+		this.finishDrag(false);
+	}
+
+	updatePointerDrag(event) {
+		const drag = this.dragState;
+		if (!drag || drag.mode !== 'pointer' || !drag.active) return;
+		const metrics = drag.metrics || this.computeMetrics();
+		if (!metrics) return;
+		drag.gridRect = this.gridEl.getBoundingClientRect();
+		const rect = drag.gridRect;
+		const span = metrics.cell + metrics.gap;
+		const relX = event.clientX - rect.left;
+		const relY = event.clientY - rect.top;
+		let desiredCol = Math.round((relX - metrics.cell / 2) / span);
+		let desiredRow = Math.round((relY - metrics.cell / 2) / span);
+		const preview = this.generatePreviewPack(drag.widget, desiredRow, desiredCol);
+		if (preview) {
+			drag.previewPack = preview;
+			const placement = preview.placements.get(drag.widget.id);
+			if (placement) {
+				drag.candidateCol = placement.col;
+				drag.candidateRow = placement.row;
+			}
+			drag.valid = true;
+			this.applyPreviewPack(preview, drag.widget);
+			drag.widget.element.classList.add('drag-valid');
+			drag.widget.element.classList.remove('drag-invalid');
+		} else {
+			drag.valid = false;
+			drag.widget.element.classList.remove('drag-valid');
+			drag.widget.element.classList.add('drag-invalid');
+		}
+		event.preventDefault();
+	}
+
+	finishDrag(commit, suppressFocus = false) {
+		const drag = this.dragState;
+		if (!drag) return;
+		if (drag.longPressTimeout) {
+			clearTimeout(drag.longPressTimeout);
+		}
+		const widget = drag.widget;
+		if (drag.mode === 'pointer' && drag.pointerId != null && widget.element.releasePointerCapture) {
+			try { widget.element.releasePointerCapture(drag.pointerId); } catch {}
+		}
+		widget.element.classList.remove('is-dragging', 'drag-valid', 'drag-invalid');
+		widget.element.style.pointerEvents = '';
+		widget.element.style.transform = '';
+		widget.element.style.zIndex = '';
+
+		if (commit && drag.valid && drag.previewPack) {
+			const pack = drag.previewPack;
+			const placement = pack.placements.get(widget.id);
+			const targetRow = placement ? placement.row : (drag.candidateRow ?? drag.originRow ?? 0);
+			const targetCol = placement ? placement.col : (drag.candidateCol ?? drag.originCol ?? 0);
+			const targetIndex = Math.max(0, Math.min(this.widgets.length, this.calculateInsertionIndex(targetRow, targetCol)));
+			this.widgets.splice(targetIndex, 0, widget);
+			this.updateOrdersFromPack(pack);
+			this.applyPack(pack);
+			this.updateAllEditStates();
+		} else {
+			this.restoreFromSnapshot(drag.snapshot, widget);
+		}
+
+		if (drag.touchMoveBlocker) {
+			window.removeEventListener('touchmove', drag.touchMoveBlocker, drag.touchMoveOptions || false);
+		}
+		this.dragState = null;
+		this.cleanupPointerListeners();
+		if (this.editing && !suppressFocus) {
+			requestAnimationFrame(() => {
+				try {
+					widget.element.focus({ preventScroll: false });
+				} catch {}
+			});
+		}
+	}
+
+	cancelPendingDrag() {
+		const drag = this.dragState;
+		if (!drag) return;
+		if (drag.longPressTimeout) {
+			clearTimeout(drag.longPressTimeout);
+		}
+		if (drag.mode === 'pointer' && drag.pointerId != null && drag.widget.element.releasePointerCapture) {
+			try { drag.widget.element.releasePointerCapture(drag.pointerId); } catch {}
+		}
+		drag.widget.element.classList.remove('is-dragging', 'drag-valid', 'drag-invalid');
+		drag.widget.element.style.pointerEvents = '';
+		drag.widget.element.style.transform = '';
+		drag.widget.element.style.zIndex = '';
+		this.restoreFromSnapshot(drag.snapshot, drag.widget);
+		if (drag.touchMoveBlocker) {
+			window.removeEventListener('touchmove', drag.touchMoveBlocker, drag.touchMoveOptions || false);
+		}
+		this.dragState = null;
+		this.cleanupPointerListeners();
+	}
+
+	cleanupPointerListeners() {
+		window.removeEventListener('pointermove', this.handlePointerMoveBound, false);
+		window.removeEventListener('pointerup', this.handlePointerUpBound, false);
+		window.removeEventListener('pointercancel', this.handlePointerCancelBound, false);
+	}
+
+	handleWidgetKeyDown(widget, event) {
+		if (!this.editing) return;
+		const drag = this.dragState;
+		const key = event.key;
+		if (!drag || drag.mode !== 'keyboard' || drag.widget !== widget) {
+			if (key === ' ' || key === 'Enter') {
+				event.preventDefault();
+				event.stopPropagation();
+				this.startKeyboardDrag(widget);
+			}
+			return;
+		}
+		event.preventDefault();
+		switch (key) {
+			case 'ArrowLeft':
+				this.moveKeyboardDrag(-1, 0);
+				break;
+			case 'ArrowRight':
+				this.moveKeyboardDrag(1, 0);
+				break;
+			case 'ArrowUp':
+				this.moveKeyboardDrag(0, -1);
+				break;
+			case 'ArrowDown':
+				this.moveKeyboardDrag(0, 1);
+				break;
+			case 'Escape':
+				this.finishDrag(false);
+				break;
+			case ' ':
+			case 'Enter':
+				this.finishDrag(drag.valid);
+				break;
+		}
+	}
+
+	startKeyboardDrag(widget) {
+		if (this.dragState) return;
+		const drag = {
+			mode: 'keyboard',
+			widget,
+			active: true,
+			valid: true,
+			originIndex: this.widgets.findIndex(w => w.id === widget.id),
+			originCol: widget.col ?? 0,
+			originRow: widget.row ?? 0,
+			candidateCol: widget.col ?? 0,
+			candidateRow: widget.row ?? 0
+		};
+		this.dragState = drag;
+		this.startDragSession(drag);
+		const preview = this.generatePreviewPack(widget, drag.candidateRow, drag.candidateCol);
+		if (preview) {
+			drag.previewPack = preview;
+			this.applyPreviewPack(preview, widget);
+		} else {
+			this.positionDraggedWidget(widget, drag.candidateCol, drag.candidateRow);
+		}
+		widget.element.classList.add('drag-valid');
+		widget.element.classList.remove('drag-invalid');
+	}
+
+	moveKeyboardDrag(dx, dy) {
+		const drag = this.dragState;
+		if (!drag || drag.mode !== 'keyboard') return;
+		let desiredCol = drag.candidateCol + dx;
+		let desiredRow = drag.candidateRow + dy;
+		const preview = this.generatePreviewPack(drag.widget, desiredRow, desiredCol);
+		if (!preview) return;
+		drag.previewPack = preview;
+		const placement = preview.placements.get(drag.widget.id);
+		if (placement) {
+			drag.candidateCol = placement.col;
+			drag.candidateRow = placement.row;
+		}
+		drag.valid = true;
+		this.applyPreviewPack(preview, drag.widget);
+		drag.widget.element.classList.add('drag-valid');
+		drag.widget.element.classList.remove('drag-invalid');
+	}
+}
+
+const DashboardController = (() => {
+	const managers = new Map();
+	let trayContext = null;
+	let trayCategory = 'test';
+
+	function init() {
+		setupTrayCategoryControls();
+		populateWidgetTray();
+		registerDashboard('match', document.querySelector('[data-dashboard="match"]'));
+		registerDashboard('players', document.querySelector('[data-dashboard="players"]'));
+		refreshForSubtab(currentStatsSubtab || 'teams');
+	}
+
+	function registerDashboard(key, shell) {
+		if (!shell) return;
+		const manager = new DashboardGridManager({
+			key,
+			shell,
+			grid: shell.querySelector('.dashboard-grid'),
+			placeholder: shell.querySelector('.dashboard-empty'),
+			toolbar: shell.querySelector('.dashboard-toolbar'),
+			addButtons: shell.querySelectorAll('[data-dashboard-action="add"]'),
+			editButton: shell.querySelector('[data-dashboard-action="edit"]'),
+			columns: 4,
+			gap: 16
+		});
+		manager.init();
+		managers.set(key, manager);
+	}
+
+	function populateWidgetTray() {
+		const list = document.querySelector('.widget-tray-list');
+		if (!list) return;
+		list.innerHTML = '';
+
+		updateTrayCategoryButtons();
+
+		const available = WidgetCatalog.filter(def => (def.category || 'test') === trayCategory);
+
+		if (!available.length) {
+			const empty = document.createElement('div');
+			empty.className = 'widget-tray-empty';
+			empty.textContent = trayCategory === 'implemented'
+				? 'Nothing to see here.'
+				: 'Widgets coming soon.';
+			list.appendChild(empty);
+			return;
+		}
+
+		available.forEach(def => {
+			const article = document.createElement('article');
+			article.className = 'widget-tray-card';
+			article.setAttribute('role', 'listitem');
+			article.dataset.widgetType = def.type;
+
+			const icon = document.createElement('div');
+			icon.className = 'widget-tray-card-icon';
+			icon.setAttribute('aria-hidden', 'true');
+			icon.style.background = def.color;
+
+			const body = document.createElement('div');
+			body.className = 'widget-tray-card-body';
+
+			const title = document.createElement('h4');
+			title.className = 'widget-tray-card-title';
+			title.textContent = def.label;
+
+			const subtitle = document.createElement('p');
+			subtitle.className = 'widget-tray-card-description';
+			subtitle.textContent = `${def.size.cols}x${def.size.rows} - ${def.description}`;
+
+			body.appendChild(title);
+			body.appendChild(subtitle);
+
+			const button = document.createElement('button');
+			button.type = 'button';
+			button.className = 'widget-tray-card-action';
+			button.dataset.widgetAdd = def.type;
+			button.textContent = 'Add Widget';
+			button.setAttribute('aria-label', `Add ${def.label}`);
+			button.addEventListener('click', () => handleTraySelection(def.type));
+
+			article.appendChild(icon);
+			article.appendChild(body);
+			article.appendChild(button);
+
+			list.appendChild(article);
+		});
+	}
+
+	function requestAdd(key) {
+		const manager = managers.get(key);
+		if (!manager) return;
+		if (manager.isEditing()) {
+			showDashboardMessage('Exit edit mode to add widgets.');
+			return;
+		}
+		trayContext = key;
+		openWidgetTray(key);
+	}
+
+	function handleTraySelection(type) {
+		if (!trayContext) return;
+		const manager = managers.get(trayContext);
+		if (!manager) return;
+		const success = manager.tryAddWidget(type);
+		if (success) {
+			closeWidgetTray();
+		}
+	}
+
+	function setTrayContext(context) {
+		trayContext = context;
+	}
+
+	function clearTrayContext() {
+		trayContext = null;
+	}
+
+	function getManager(key) {
+		return managers.get(key);
+	}
+
+	function refreshForSubtab(subtab) {
+		if (subtab === 'match') {
+			managers.get('match')?.refreshLayout();
+		} else if (subtab === 'players') {
+			managers.get('players')?.refreshLayout();
+		}
+	}
+
+	function refreshAll() {
+		managers.forEach(manager => manager.refreshLayout());
+	}
+
+	function setTrayCategory(category) {
+		if (!category || category === trayCategory) return;
+		trayCategory = category;
+		updateTrayCategoryButtons();
+		populateWidgetTray();
+	}
+
+	function setupTrayCategoryControls() {
+		const buttons = document.querySelectorAll('.widget-tray-category-btn');
+		if (!buttons.length) return;
+		buttons.forEach(btn => {
+			btn.addEventListener('click', () => {
+				const selected = btn.getAttribute('data-category') || 'test';
+				setTrayCategory(selected);
+			});
+		});
+		updateTrayCategoryButtons();
+	}
+
+	function updateTrayCategoryButtons() {
+		const buttons = document.querySelectorAll('.widget-tray-category-btn');
+		if (buttons.length) {
+			buttons.forEach(btn => {
+				const cat = btn.getAttribute('data-category');
+				const active = cat === trayCategory;
+				btn.classList.toggle('active', active);
+				btn.setAttribute('aria-selected', active ? 'true' : 'false');
+				btn.tabIndex = active ? 0 : -1;
+			});
+		}
+		const subtitle = document.querySelector('.widget-tray-subtitle');
+		if (subtitle) {
+			subtitle.textContent = trayCategory === 'implemented'
+				? 'Widgets currently available in the app.'
+				: 'Preview upcoming widget layouts.';
+		}
+	}
+
+	function getTrayCategory() {
+		return trayCategory;
+	}
+
+	return {
+		init,
+		requestAdd,
+		handleTraySelection,
+		setTrayContext,
+		clearTrayContext,
+		getManager,
+		refreshForSubtab,
+		refreshAll,
+		_updateTrayCategoryButtons: updateTrayCategoryButtons,
+		_getTrayCategory: getTrayCategory,
+		_setTrayCategory: setTrayCategory
+	};
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+	DashboardController.init();
+});
+
+window.addEventListener('resize', debounce(() => {
+	if (typeof DashboardController !== 'undefined' && DashboardController.refreshAll) {
+		DashboardController.refreshAll();
+	}
+}, 180));
 
 // Initialize stats subtab navigation
 function initStatsSubtabNavigation() {
@@ -2611,6 +5092,10 @@ function renameTeam(team) {
             alert('Please enter a valid team name.');
         }
     }
+
+	if (ScoresByHalfModel && typeof ScoresByHalfModel.notifyTeamNamesChanged === 'function') {
+		ScoresByHalfModel.notifyTeamNamesChanged();
+	}
 }
 
 function updatePlayerLabels() {
@@ -2932,7 +5417,6 @@ function showCoordinateWarning(message) {
         warningBox.classList.remove('show');
     }, 1000); // 1 second
 }
-
 // Update coordinate screen UI for grid vs coordinates
 function updateCoordinateScreenMode() {
     try {
@@ -2954,7 +5438,6 @@ function updateCoordinateScreenMode() {
         console.error('updateCoordinateScreenMode failed', e);
     }
 }
-
 // GRID actions list
 const GRID_ACTIONS = new Set([
     'Point - Score',
@@ -3021,7 +5504,6 @@ function getGridFromPoint(x, y) {
     }
     return null;
 }
-
 // Draw highlight for selected GRID area
 function drawGridHighlight(gridId) {
     // Compose highlight offscreen so we don't affect pitch lines
@@ -3433,10 +5915,8 @@ const drawReviewClockwiseRotatedSemicircle = (semicircle) => {
     reviewCtx.strokeStyle = 'black';  // Ensure the line color is black
     reviewCtx.stroke();
 };
-
 const mapXReview = x => (x / 80) * reviewCanvas.width;
 const mapYReview = y => reviewCanvas.height - (y / 140) * reviewCanvas.height;
-
 let reviewMarkers = []; // Store marker positions
 
 const drawReviewMarker = (x, y, color, entry, actionType, markerType = 'circle') => {
@@ -3801,7 +6281,6 @@ const drawReviewMarker = (x, y, color, entry, actionType, markerType = 'circle')
     }
     reviewMarkers.push({ x, y, entry, color, markerType });
 };
-
 const drawHandpassMarker = (x1, y1, x2, y2, color, entry) => {
     const mappedX1 = mapXReview(x1);
     const mappedY1 = mapYReview(y1);
@@ -3986,7 +6465,6 @@ const drawCarryMarker = (x1, y1, x2, y2, color, entry) => {
     reviewMarkers.push({ x: x1, y: y1, entry, color, markerType: 'carry-start' });
     reviewMarkers.push({ x: x2, y: y2, entry, color, markerType: 'carry-end' });
 };
-
 const filterActions = () => {
     // Check Point-Score filter toggles
     const showPointScoreTeam1 = document.getElementById('filter-point-score-team1')?.checked || false;
@@ -3994,7 +6472,7 @@ const filterActions = () => {
     
     // Check 2-Point-Score filter toggles
     const show2PointScoreTeam1 = document.getElementById('filter-2-point-score-team1')?.checked || false;
-    const show2PointScoreTeam2 = document.getElementById('filter-2-point-score-team2')?.checked || false;
+    const show2PointScoreTeam2 = document.getElementById('filter-2-point-score2')?.checked || false;
     
     // Check Goal-Score filter toggles
     const showGoalScoreTeam1 = document.getElementById('filter-goal-score-team1')?.checked || false;
@@ -4354,7 +6832,6 @@ const handleCanvasClick = (e) => {
     }
 
 };
-
 function showSummaryBox(x, y, entry, color) {
     // Remove any existing summary box first
     const existingBox = document.getElementById('summary-box');
@@ -4777,7 +7254,6 @@ function openTeamEditPopup(teamIndex) {
     const popup = document.getElementById('team-edit-popup');
     PopupAnimator.showPopup(popup, 'standard');
 }
-
 function confirmTeamEdit() {
     const newName = document.getElementById('team-name-input').value.trim();
     if (newName === '') {
@@ -5136,7 +7612,6 @@ function handleTouchEnd(e) {
     // Cleanup touch drag state
     cleanupTouchDragState();
 }
-
 function cleanupTouchDragState() {
     if (touchDragElement) {
         touchDragElement.classList.remove('touch-drag-active');
@@ -5156,7 +7631,6 @@ function cleanupTouchDragState() {
     touchStartY = 0;
     touchStartTime = 0;
 }
-
 // --- Swap Function ---
 function swapPlayerNames(index1, index2) {
     // Determine which team(s) we're working with
@@ -5476,6 +7950,7 @@ function cancelCurrentAction() {
         definition: null,
         mode: null
     };
+    clearPendingTimerSnapshot();
     
     // Reset any context flags
     window.matchLogContext = false;
@@ -5570,7 +8045,6 @@ function checkActionFlow(action) {
     
     return actionsWithFlows.includes(action);
 }
-
 function updateMatchLogTeamNames() {
     // Use setTimeout to ensure DOM is ready
     setTimeout(() => {
@@ -5911,7 +8385,6 @@ function applyTeamCustomization(teamNumber) {
     // Apply to timeline action boxes
     updateTimelineColors();
 }
-
 function updateBannerStyling() {
     const team1Style = generateTeamStyle(
         teamCustomizations[1].pattern,
@@ -6357,7 +8830,6 @@ function showTimelineRowOptionsMenu(element, index) {
         document.addEventListener('click', hideRowOptionsMenu, { once: true });
     }, 10);
 }
-
 // Utility to position the row options popup relative to an anchor element
 function positionRowOptionsPopup(popup, anchorEl) {
 	try {
@@ -6711,7 +9183,6 @@ function normalizeColor(colorInput) {
     // If unrecognized, return black
     return '#000000';
 }
-
 // Normalize pattern name
 function normalizePattern(patternInput) {
     if (!patternInput) return 'classic';
@@ -7145,7 +9616,6 @@ function applyTeamSheetData(teamNumber, data) {
     // Update Match Log team names and action button titles
     updateMatchLogTeamNames();
 }
-
 // Apply team design across the app
 function applyTeamDesign(teamNumber, data) {
     const root = document.documentElement;
@@ -7491,7 +9961,6 @@ function testPointScoreFiltering() {
     // Switch to Review tab
     switchTab('review');
 }
-
 function testTeamIdentifierSystem() {
     console.log('Testing Team Identifier System...');
     
@@ -7879,7 +10348,6 @@ function generateLegend() {
     
     return visibleActions;
 }
-
 // Draw legend icons for the saved image
 function drawLegendIcon(ctx, x, y, size, action) {
     ctx.save();
