@@ -13,6 +13,10 @@ let team2Points = 0;
 const AppEventBus = {
 	emit(name, detail = {}) {
 		document.dispatchEvent(new CustomEvent(name, { detail }));
+		// Also forward to WidgetEventBus for widget communication (if available)
+		if (typeof WidgetEventBus !== 'undefined' && WidgetEventBus) {
+			WidgetEventBus.emit(name, detail);
+		}
 	}
 };
 
@@ -660,38 +664,53 @@ class TimerController {
 	}
 
 	triggerNextPhase() {
-		const phaseKey = this.currentPhaseKey();
+		const startingKey = this.currentPhaseKey();
+		let transitioned = false;
+		const phaseKey = startingKey;
 		switch (phaseKey) {
 			case 'PREMATCH':
 				this.startPhase('H1', 'First Half Started');
+				transitioned = true;
 				break;
 			case 'H1':
 				this.endToPhase('HT', 'First Half Ended');
+				transitioned = true;
 				break;
 			case 'HT':
 				this.startPhase('H2', 'Second Half Started');
+				transitioned = true;
 				break;
 			case 'H2':
 				this.endToPhase('FT', 'Second Half Ended');
+				transitioned = true;
 				break;
 			case 'FT':
 				this.startPhase('ET1', 'First Half Extra Time Started');
+				transitioned = true;
 				break;
 			case 'ET1':
 				this.endToPhase('ET1_HT', 'First Half Extra Time Ended');
+				transitioned = true;
 				break;
 			case 'ET1_HT':
 				this.startPhase('ET2', 'Second Half Extra Time Started');
+				transitioned = true;
 				break;
 			case 'ET2':
 				this.endToPhase('FTET', 'Second Half ET Ended');
+				transitioned = true;
 				break;
 			case 'FTET':
 			case 'FINISHED':
 				// no-op
 				break;
 		}
-		this.closeTray();
+		const endingKey = this.currentPhaseKey();
+		if (transitioned && endingKey !== startingKey) {
+			this.closeTray();
+		} else if (!transitioned || endingKey === startingKey) {
+			TimerController.showToast('No additional timer phases available.');
+		}
 	}
 
 	confirmReset() {
@@ -832,7 +851,11 @@ class TimerController {
 		this.tray.setAttribute('aria-hidden', 'false');
 		this.trayToggle.setAttribute('aria-expanded', 'true');
 		this.trapFocus(true);
-		// outside click close (anywhere not inside tray or on toggle)
+
+		if (this.boundOutsideHandler) {
+			document.removeEventListener('click', this.boundOutsideHandler, true);
+		}
+
 		this.boundOutsideHandler = (e) => {
 			const clickedInsideTray = this.tray.contains(e.target);
 			const clickedToggle = e.target === this.trayToggle || this.trayToggle.contains?.(e.target);
@@ -840,7 +863,8 @@ class TimerController {
 				this.closeTray();
 			}
 		};
-		setTimeout(() => document.addEventListener('click', this.boundOutsideHandler, { once: true }), 0);
+
+		setTimeout(() => document.addEventListener('click', this.boundOutsideHandler, true), 0);
 	}
 
 	closeTray() {
@@ -849,6 +873,11 @@ class TimerController {
 		this.trayToggle.setAttribute('aria-expanded', 'false');
 		this.trapFocus(false);
 		this.trayToggle.focus();
+
+		if (this.boundOutsideHandler) {
+			document.removeEventListener('click', this.boundOutsideHandler, true);
+			this.boundOutsideHandler = null;
+		}
 	}
 
 	trapFocus(enable) {
@@ -1117,11 +1146,12 @@ function selectAction(action) {
         'Goal - Score': 'mode-goal-score',
         'Goal - Miss': 'mode-goal-miss',
         '45 Entry': 'mode-45-entry',
+        'Opp. 45 Entry': 'mode-45-entry',
         'Source of Shot': 'mode-source-of-shot',
         'Free Won': 'mode-free-won',
         'Ball - Won': 'mode-ball-won',
         'Ball Won (Forced)': 'mode-ball-won',
-        'Ball Won (Unforced)': 'mode-ball-won',
+        'Ball Won (Unforced)': 'mode-ball-won-unforced',
         'Ball - Lost': 'mode-ball-lost',
         'Ball Lost (Forced)': 'mode-ball-lost',
         'Ball Lost (Unforced)': 'mode-ball-lost-unforced',
@@ -1243,23 +1273,9 @@ function selectMode(mode) {
                 switchScreen('player-buttons');
             }
         }
-    } else if (currentAction === '45 Entry') {
-        // 45 Entry has conditional routing based on mode
-        if (mode === 'Carry (Fast)' || mode === 'Carry (Slow)' || mode === 'Other') {
-            // Single player selection, then log action
-            if (window.matchLogContext && currentMatchLogTeam === 2) {
-                switchScreen('player-buttons-team2');
-            } else {
-                switchScreen('player-buttons');
-            }
-        } else {
-            // Kickpass or Handpass - go to first player selection
-            if (window.matchLogContext && currentMatchLogTeam === 2) {
-                switchScreen('player-buttons-team2');
-            } else {
-                switchScreen('player-buttons');
-            }
-        }
+    } else if (currentAction === '45 Entry' || currentAction === 'Opp. 45 Entry') {
+        // 45 Entry logs action directly after mode selection (no player selection)
+        logAction();
     } else if (currentAction === 'Source of Shot') {
         // Source of Shot logs action directly after mode selection
         logAction();
@@ -1320,20 +1336,6 @@ function selectPlayer(player) {
         } else {
             switchScreen('player-buttons-second');
         }
-    } else if (currentAction === '45 Entry') {
-        // 45 Entry has conditional routing based on mode
-        if (currentMode === 'Carry (Fast)' || currentMode === 'Carry (Slow)' || currentMode === 'Other') {
-            // Single player selection, then log action
-            logAction();
-        } else {
-            // Kickpass or Handpass - go to second player selection
-            // Check for Team 2 context for second player selection
-            if (window.matchLogContext && currentMatchLogTeam === 2) {
-                switchScreen('player-buttons-second-team2');
-            } else {
-                switchScreen('player-buttons-second');
-            }
-        }
     } else if ((gridEnabled && GRID_ACTIONS.has(currentAction)) || (coordinatesEnabled && (currentAction === 'Point - Score' || currentAction === '2-Point - Score' || currentAction === 'Goal - Score' || currentAction === 'Point - Score (Team 2)' || currentAction === '2-Point - Score (Team 2)' || currentAction === 'Goal - Score (Team 2)' || currentAction === 'Point - Miss' || currentAction === 'Goal - Miss' || currentAction === 'Our Kickout' || currentAction === 'Opp. Kickout' || currentAction === 'Point - Against' || currentAction === 'Goal - Against' || currentAction === 'Miss - Against' || currentAction === 'Carry' || currentAction === 'Free Won' || currentAction === 'Ball Lost (Forced)' || currentAction === 'Ball Lost (Unforced)' || currentAction === 'Ball Won (Forced)' || currentAction === 'Ball Won (Unforced)' || currentAction === 'Foul Committed'))) {
         gridSelectionActive = !!(gridEnabled && GRID_ACTIONS.has(currentAction));
         updateCoordinateScreenMode();
@@ -1345,10 +1347,7 @@ function selectPlayer(player) {
 
 function selectSecondPlayer(player) {
     secondPlayer = player;
-    if (currentAction === '45 Entry') {
-        // 45 Entry doesn't use coordinates, log action directly
-        logAction();
-    } else if ((gridEnabled && GRID_ACTIONS.has(currentAction)) || (coordinatesEnabled && (currentAction === 'Handpass' || currentAction === 'Kickpass'))) {
+    if ((gridEnabled && GRID_ACTIONS.has(currentAction)) || (coordinatesEnabled && (currentAction === 'Handpass' || currentAction === 'Kickpass'))) {
         gridSelectionActive = !!(gridEnabled && GRID_ACTIONS.has(currentAction));
         updateCoordinateScreenMode();
         switchScreen('coordinate-screen'); // Go to coordinate screen after second player selection
@@ -1577,6 +1576,7 @@ function returnToModeScreen() {
         'Point - Miss': 'mode-point-miss',
         'Goal - Miss': 'mode-goal-miss',
         '45 Entry': 'mode-45-entry',
+        'Opp. 45 Entry': 'mode-45-entry',
         'Source of Shot': 'mode-source-of-shot',
         'Free Won': 'mode-free-won',
         'Ball - Won': 'mode-ball-won',
@@ -3370,6 +3370,241 @@ const WidgetCatalog = [
 
 const WidgetCatalogMap = new Map(WidgetCatalog.map(def => [def.type, def]));
 
+// ===== WIDGET SYSTEM CORE =====
+
+// WidgetEventBus - Central event bus for widget communication
+const WidgetEventBus = (() => {
+    const listeners = new Map();
+    
+    return {
+        on(eventName, callback) {
+            if (!listeners.has(eventName)) {
+                listeners.set(eventName, new Set());
+            }
+            listeners.get(eventName).add(callback);
+            
+            // Return unsubscribe function
+            return () => {
+                const callbacks = listeners.get(eventName);
+                if (callbacks) {
+                    callbacks.delete(callback);
+                    if (callbacks.size === 0) {
+                        listeners.delete(eventName);
+                    }
+                }
+            };
+        },
+        
+        emit(eventName, payload = {}) {
+            const callbacks = listeners.get(eventName);
+            if (callbacks) {
+                callbacks.forEach(callback => {
+                    try {
+                        callback(payload);
+                    } catch (error) {
+                        console.error(`Error in event listener for ${eventName}:`, error);
+                    }
+                });
+            }
+            
+            // Also emit to document for backward compatibility
+            document.dispatchEvent(new CustomEvent(eventName, { detail: payload }));
+        },
+        
+        off(eventName, callback) {
+            const callbacks = listeners.get(eventName);
+            if (callbacks) {
+                callbacks.delete(callback);
+                if (callbacks.size === 0) {
+                    listeners.delete(eventName);
+                }
+            }
+        },
+        
+        clear(eventName) {
+            if (eventName) {
+                listeners.delete(eventName);
+            } else {
+                listeners.clear();
+            }
+        }
+    };
+})();
+
+// BaseWidget - Parent class for all widgets
+class BaseWidget {
+    constructor(id, container, options = {}) {
+        this.id = id;
+        this.type = options.type || 'unknown';
+        this.container = container;
+        this.element = null;
+        this.headerEl = null;
+        this.bodyEl = null;
+        this.footerEl = null;
+        this.eventSubscriptions = [];
+        this.mounted = false;
+        this.defaultSize = options.defaultSize || { w: 1, h: 1 };
+        
+        // Build the standard widget shell
+        this.buildShell();
+    }
+    
+    buildShell() {
+        // Root element
+        this.element = document.createElement('div');
+        this.element.className = 'widget';
+        this.element.dataset.widgetId = this.id;
+        this.element.dataset.widgetType = this.type;
+        this.element.setAttribute('role', 'group');
+        this.element.setAttribute('aria-label', `${this.type} widget`);
+        
+        // Set grid size attributes
+        this.element.setAttribute('data-cols', this.defaultSize.w);
+        this.element.setAttribute('data-rows', this.defaultSize.h);
+        
+        // Header (optional)
+        this.headerEl = document.createElement('div');
+        this.headerEl.className = 'widget-header';
+        this.element.appendChild(this.headerEl);
+        
+        // Body (required)
+        this.bodyEl = document.createElement('div');
+        this.bodyEl.className = 'widget-body';
+        this.element.appendChild(this.bodyEl);
+        
+        // Footer (optional)
+        this.footerEl = document.createElement('div');
+        this.footerEl.className = 'widget-footer';
+        this.element.appendChild(this.footerEl);
+    }
+    
+    // Abstract method - must be implemented by subclasses
+    render(data) {
+        throw new Error('render() must be implemented by widget subclass');
+    }
+    
+    // Handle events from event bus
+    onEvent(eventName, payload) {
+        // Default implementation - subclasses can override
+    }
+    
+    // Mount widget to container
+    mount(container) {
+        if (this.mounted) return;
+        if (container && this.element) {
+            // Only append if element is not already in the DOM
+            if (!this.element.parentNode) {
+                container.appendChild(this.element);
+            }
+            this.mounted = true;
+            this._subscribeToEvents();
+        }
+    }
+    
+    // Unmount widget from container
+    unmount() {
+        if (!this.mounted) return;
+        this._unsubscribeFromEvents();
+        if (this.element && this.element.parentNode) {
+            this.element.parentNode.removeChild(this.element);
+        }
+        this.mounted = false;
+    }
+    
+    // Subscribe to event bus
+    _subscribeToEvents() {
+        // Subclasses can override to subscribe to specific events
+        // This method is called when widget is mounted
+        // Subclasses should call WidgetEventBus.on() for specific events they care about
+    }
+    
+    // Unsubscribe from event bus
+    _unsubscribeFromEvents() {
+        this.eventSubscriptions.forEach(unsubscribe => {
+            if (typeof unsubscribe === 'function') {
+                unsubscribe();
+            }
+        });
+        this.eventSubscriptions = [];
+    }
+    
+    // Cleanup and teardown
+    destroy() {
+        this._unsubscribeFromEvents();
+        this.unmount();
+        // Clear element references
+        this.element = null;
+        this.headerEl = null;
+        this.bodyEl = null;
+        this.footerEl = null;
+        this.container = null;
+        this.mounted = false;
+    }
+}
+
+// WidgetRegistry - Central registry for widget metadata
+const WidgetRegistry = (() => {
+    const widgets = new Map();
+    
+    return {
+        registerWidget(config) {
+            if (!config.type || !config.constructor) {
+                console.error('Widget registration requires type and constructor');
+                return false;
+            }
+            
+            widgets.set(config.type, {
+                type: config.type,
+                label: config.label || config.name || config.type,
+                icon: config.icon || '',
+                category: config.category || 'test',
+                defaultSize: config.defaultSize || { w: 1, h: 1 },
+                constructor: config.constructor,
+                description: config.description || '',
+                color: config.color || '#1d4ed8',
+                textColor: config.textColor || '#ffffff'
+            });
+            return true;
+        },
+        
+        getWidget(type) {
+            return widgets.get(type);
+        },
+        
+        getAllWidgets() {
+            return Array.from(widgets.values());
+        },
+        
+        getWidgetsByCategory(category) {
+            return Array.from(widgets.values()).filter(w => w.category === category);
+        },
+        
+        hasWidget(type) {
+            return widgets.has(type);
+        }
+    };
+})();
+
+// Register widgets from catalog in the registry for backward compatibility
+// This allows the registry to be used while maintaining legacy widget support
+WidgetCatalog.forEach(def => {
+	if (!WidgetRegistry.hasWidget(def.type)) {
+		WidgetRegistry.registerWidget({
+			type: def.type,
+			label: def.label,
+			category: def.category || 'test',
+			defaultSize: { w: def.size.cols, h: def.size.rows },
+			color: def.color,
+			textColor: def.textColor,
+			description: def.description,
+			constructor: (id, container, options) => {
+				// Return null to use legacy widget creation
+				return null;
+			}
+		});
+	}
+});
+
 const SCORE_WIDGET_DELTAS = {
 	'Point - Score': { goals: 0, points: 1 },
 	'2-Point - Score': { goals: 0, points: 2 },
@@ -3867,6 +4102,21 @@ class DashboardGridManager {
 	}
 
 	getDefinition(type) {
+		// Try registry first, fallback to legacy catalog
+		const registryDef = WidgetRegistry.getWidget(type);
+		if (registryDef) {
+			// Convert registry format to legacy format for compatibility
+			return {
+				type: registryDef.type,
+				label: registryDef.label,
+				size: { cols: registryDef.defaultSize.w, rows: registryDef.defaultSize.h },
+				color: registryDef.color || '#1d4ed8',
+				textColor: registryDef.textColor || '#ffffff',
+				description: registryDef.description,
+				category: registryDef.category
+			};
+		}
+		// Fallback to legacy catalog
 		return WidgetCatalogMap.get(type);
 	}
 
@@ -3949,13 +4199,28 @@ class DashboardGridManager {
 		if (index === -1) return;
 
 		const widget = this.widgets[index];
-		if (widget.controller && typeof widget.controller.destroy === 'function') {
+		
+		// Use BaseWidget destroy if available, otherwise use controller
+		if (widget instanceof BaseWidget && typeof widget.destroy === 'function') {
+			widget.destroy();
+		} else if (widget.controller && typeof widget.controller.destroy === 'function') {
 			widget.controller.destroy();
 		}
-		widget.element.classList.add('dashboard-widget-exit');
+		
+		// Add exit animation for legacy widgets
+		if (widget.element && !(widget instanceof BaseWidget)) {
+			widget.element.classList.add('dashboard-widget-exit');
+		} else if (widget.wrapperElement) {
+			widget.wrapperElement.classList.add('dashboard-widget-exit');
+		}
 
 		setTimeout(() => {
-			widget.element.remove();
+			// Remove element if not already removed by destroy
+			if (widget.wrapperElement && widget.wrapperElement.parentNode) {
+				widget.wrapperElement.remove();
+			} else if (widget.element && widget.element.parentNode && !(widget instanceof BaseWidget)) {
+				widget.element.remove();
+			}
 			this.widgets.splice(index, 1);
 
 			if (this.widgets.length) {
@@ -4063,6 +4328,105 @@ class DashboardGridManager {
 	}
 
 	createWidget(definition, id, order, options = {}) {
+		// Check if widget type has a constructor in registry (new BaseWidget system)
+		const registryDef = WidgetRegistry.getWidget(definition.type);
+		if (registryDef && registryDef.constructor) {
+			try {
+				// Create widget using registry constructor
+				const widget = registryDef.constructor(id, this.gridEl, {
+					type: definition.type,
+					defaultSize: { w: definition.size?.cols || 1, h: definition.size?.rows || 1 }
+				});
+				if (widget && widget instanceof BaseWidget && widget.element) {
+					// Set up widget properties
+					widget.id = id;
+					widget.type = definition.type;
+					widget.order = order;
+					widget.definition = definition;
+					widget.cols = definition.size.cols;
+					widget.rows = definition.size.rows;
+					
+					// Wrap widget element in dashboard-widget container for compatibility
+					const wrapper = document.createElement('div');
+					wrapper.className = 'dashboard-widget dashboard-widget-enter';
+					wrapper.dataset.widgetId = id;
+					wrapper.setAttribute('aria-label', definition.label);
+					wrapper.setAttribute('role', 'group');
+					wrapper.style.background = definition.color;
+					wrapper.style.color = definition.textColor || '#ffffff';
+					
+					// Move widget element into wrapper
+					if (widget.element) {
+						wrapper.appendChild(widget.element);
+					}
+					
+					// Add edit overlay
+					const editOverlay = document.createElement('div');
+					editOverlay.className = 'dashboard-widget-edit-overlay';
+					const overlayTitle = document.createElement('p');
+					overlayTitle.className = 'dashboard-widget-edit-title';
+					overlayTitle.textContent = definition.label;
+					const overlaySubtitle = document.createElement('p');
+					overlaySubtitle.className = 'dashboard-widget-edit-subtitle';
+					overlaySubtitle.textContent = 'Drag to reposition';
+					editOverlay.appendChild(overlayTitle);
+					editOverlay.appendChild(overlaySubtitle);
+					wrapper.appendChild(editOverlay);
+					
+					// Add remove button
+					const removeBtn = document.createElement('button');
+					removeBtn.type = 'button';
+					removeBtn.className = 'dashboard-widget-remove';
+					removeBtn.setAttribute('aria-label', `Remove ${definition.label}`);
+					removeBtn.textContent = '✕';
+					removeBtn.addEventListener('click', (event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						if (this.editing) {
+							this.removeWidget(id);
+						}
+					});
+					wrapper.appendChild(removeBtn);
+					
+					// Store wrapper reference
+					widget.wrapperElement = wrapper;
+					// Don't update widget.element to wrapper - keep original element reference
+					// The wrapper contains the original element
+					
+					// Append wrapper to grid (don't call mount since element is already in wrapper)
+					this.gridEl.appendChild(wrapper);
+					widget.mounted = true;
+					widget._subscribeToEvents();
+					
+					// Add animation
+					requestAnimationFrame(() => {
+						wrapper.classList.add('dashboard-widget-enter-active');
+						setTimeout(() => {
+							wrapper.classList.remove('dashboard-widget-enter');
+							wrapper.classList.remove('dashboard-widget-enter-active');
+						}, 220);
+					});
+					
+					// Set up event handlers
+					wrapper.tabIndex = -1;
+					wrapper.addEventListener('pointerdown', (evt) => this.handleWidgetPointerDown(widget, evt));
+					wrapper.addEventListener('keydown', (evt) => this.handleWidgetKeyDown(widget, evt));
+					
+					// Store edit overlay references
+					widget.editOverlay = editOverlay;
+					widget.editTitle = overlayTitle;
+					widget.editSubtitle = overlaySubtitle;
+					widget.justAdded = !!options.justAdded;
+					
+					return widget;
+				}
+			} catch (error) {
+				console.error(`Error creating widget ${definition.type}:`, error);
+				// Fall through to legacy creation
+			}
+		}
+		
+		// Legacy widget creation (fallback)
 		const element = document.createElement('div');
 		element.className = 'dashboard-widget dashboard-widget-enter';
 		element.dataset.widgetId = id;
@@ -4270,19 +4634,40 @@ class DashboardGridManager {
 
 		const sorted = [...list].sort((a, b) => (a.order || 0) - (b.order || 0));
 		for (const widget of sorted) {
-			const slot = this.findSlot(occupied, widget.cols, widget.rows);
+			// Use size from widget definition or fallback to cols/rows
+			let cols = widget.cols || widget.definition?.size?.cols || widget.definition?.size?.width || widget.defaultSize?.w || 1;
+			let rows = widget.rows || widget.definition?.size?.rows || widget.definition?.size?.height || widget.defaultSize?.h || 1;
+			
+			// Safety check: ensure valid dimensions
+			cols = Math.max(1, Math.min(cols, this.columns || 4));
+			rows = Math.max(1, rows);
+			
+			// Prevent infinite loops by limiting search space
+			const maxSearchRows = Math.max(occupied.length + rows + 4, rows + 4, 100);
+			const slot = this.findSlot(occupied, cols, rows, maxSearchRows);
 			if (!slot) return null;
-			this.markCells(occupied, slot.row, slot.col, widget.cols, widget.rows);
+			this.markCells(occupied, slot.row, slot.col, cols, rows);
 			placements.set(widget.id, slot);
-			maxRow = Math.max(maxRow, slot.row + widget.rows - 1);
+			maxRow = Math.max(maxRow, slot.row + rows - 1);
 		}
 
 		return { placements, rows: maxRow + 1 };
 	}
 
-	findSlot(occupied, cols, rows) {
-		const maxSearchRows = Math.max(occupied.length + rows + 4, rows + 4);
-		for (let row = 0; row < maxSearchRows; row++) {
+	findSlot(occupied, cols, rows, maxSearchRows = null) {
+		// Safety check: ensure valid dimensions
+		if (!cols || !rows || cols <= 0 || rows <= 0) {
+			return null;
+		}
+		if (cols > (this.columns || 4)) {
+			return null;
+		}
+		
+		const searchLimit = maxSearchRows || Math.max(occupied.length + rows + 4, rows + 4, 100);
+		// Cap search at reasonable limit to prevent infinite loops
+		const cappedLimit = Math.min(searchLimit, 200);
+		
+		for (let row = 0; row < cappedLimit; row++) {
 			for (let col = 0; col <= this.columns - cols; col++) {
 				if (this.canPlace(occupied, row, col, cols, rows)) {
 					return { row, col };
@@ -4345,20 +4730,30 @@ class DashboardGridManager {
 	}
 
 	applyWidgetMetrics(widget, metrics) {
-		const width = widget.cols * metrics.cell + (widget.cols - 1) * metrics.gap;
-		const height = widget.rows * metrics.cell + (widget.rows - 1) * metrics.gap;
+		// Use size from widget definition or fallback to cols/rows
+		const cols = widget.cols || widget.definition?.size?.cols || widget.definition?.size?.width || widget.defaultSize?.w || 1;
+		const rows = widget.rows || widget.definition?.size?.rows || widget.definition?.size?.height || widget.defaultSize?.h || 1;
+		const width = cols * metrics.cell + (cols - 1) * metrics.gap;
+		const height = rows * metrics.cell + (rows - 1) * metrics.gap;
 		const x = widget.col * (metrics.cell + metrics.gap);
 		const y = widget.row * (metrics.cell + metrics.gap);
-		widget.element.style.width = `${width}px`;
-		widget.element.style.height = `${height}px`;
-		widget.element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+		const targetElement = widget.wrapperElement || widget.element;
+		if (targetElement) {
+			targetElement.style.width = `${width}px`;
+			targetElement.style.height = `${height}px`;
+			targetElement.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+		}
 	}
 
 	computeMetrics() {
+		if (!this.gridEl || !this.shell) return null;
 		const baseWidth = this.gridEl.clientWidth || this.shell.clientWidth || this.shell.offsetWidth;
-		if (!baseWidth) return null;
-		const gap = this.gap;
+		if (!baseWidth || baseWidth <= 0) return null;
+		if (!this.columns || this.columns <= 0) return null;
+		
+		const gap = this.gap || 16;
 		const rawCell = (baseWidth - gap * (this.columns - 1)) / this.columns;
+		if (rawCell <= 0) return null;
 		const cell = Math.max(140, Math.min(rawCell, 220));
 		return { cell, gap };
 	}
@@ -4382,19 +4777,29 @@ class DashboardGridManager {
 	generatePreviewPack(candidate, desiredRow, desiredCol) {
 		const placements = new Map();
 		const occupied = [];
-		const col = Math.max(0, Math.min(this.columns - candidate.cols, desiredCol));
+		const candidateCols = candidate.cols || candidate.definition?.size?.cols || candidate.definition?.size?.width || candidate.defaultSize?.w || 1;
+		const candidateRows = candidate.rows || candidate.definition?.size?.rows || candidate.definition?.size?.height || candidate.defaultSize?.h || 1;
+		const col = Math.max(0, Math.min(this.columns - candidateCols, desiredCol));
 		const row = Math.max(0, desiredRow);
-		this.markCells(occupied, row, col, candidate.cols, candidate.rows);
+		this.markCells(occupied, row, col, candidateCols, candidateRows);
 		placements.set(candidate.id, { row, col });
 
 		const sorted = [...this.widgets].sort((a, b) => (a.order || 0) - (b.order || 0));
-		let maxRow = row + candidate.rows - 1;
+		let maxRow = row + candidateRows - 1;
 		for (const widget of sorted) {
-			const slot = this.findSlot(occupied, widget.cols, widget.rows);
+			// Use size from widget definition or fallback to cols/rows
+			let cols = widget.cols || widget.definition?.size?.cols || widget.definition?.size?.width || widget.defaultSize?.w || 1;
+			let rows = widget.rows || widget.definition?.size?.rows || widget.definition?.size?.height || widget.defaultSize?.h || 1;
+			
+			// Safety check: ensure valid dimensions
+			cols = Math.max(1, Math.min(cols, this.columns || 4));
+			rows = Math.max(1, rows);
+			
+			const slot = this.findSlot(occupied, cols, rows);
 			if (!slot) return null;
-			this.markCells(occupied, slot.row, slot.col, widget.cols, widget.rows);
+			this.markCells(occupied, slot.row, slot.col, cols, rows);
 			placements.set(widget.id, slot);
-			maxRow = Math.max(maxRow, slot.row + widget.rows - 1);
+			maxRow = Math.max(maxRow, slot.row + rows - 1);
 		}
 
 		return { placements, rows: maxRow + 1 };
@@ -4412,9 +4817,12 @@ class DashboardGridManager {
 			const height = widget.rows * metrics.cell + (widget.rows - 1) * metrics.gap;
 			const x = placement.col * (metrics.cell + metrics.gap);
 			const y = placement.row * (metrics.cell + metrics.gap);
-			widget.element.style.width = `${width}px`;
-			widget.element.style.height = `${height}px`;
-			widget.element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+			const targetEl = widget.wrapperElement || widget.element;
+			if (targetEl) {
+				targetEl.style.width = `${width}px`;
+				targetEl.style.height = `${height}px`;
+				targetEl.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+			}
 		});
 
 		const candidatePlacement = pack.placements.get(candidate.id);
@@ -4494,7 +4902,10 @@ class DashboardGridManager {
 		if (!metrics) return;
 		const x = col * (metrics.cell + metrics.gap);
 		const y = row * (metrics.cell + metrics.gap);
-		widget.element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) scale(1.05)`;
+		const targetEl = widget.wrapperElement || widget.element;
+		if (targetEl) {
+			targetEl.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) scale(1.05)`;
+		}
 	}
 
 	calculateInsertionIndex(row, col) {
@@ -4530,10 +4941,13 @@ class DashboardGridManager {
 		this.packCurrentWidgets();
 		drag.metrics = this.metrics || this.computeMetrics();
 		drag.gridRect = this.gridEl.getBoundingClientRect();
-		widget.element.classList.add('is-dragging');
-		widget.element.classList.remove('drag-valid', 'drag-invalid');
-		widget.element.style.pointerEvents = 'none';
-		widget.element.style.zIndex = '100';
+		const targetEl = widget.wrapperElement || widget.element;
+		if (targetEl) {
+			targetEl.classList.add('is-dragging');
+			targetEl.classList.remove('drag-valid', 'drag-invalid');
+			targetEl.style.pointerEvents = 'none';
+			targetEl.style.zIndex = '100';
+		}
 		this.positionDraggedWidget(widget, drag.originCol, drag.originRow);
 		drag.candidateCol = drag.originCol;
 		drag.candidateRow = drag.originRow;
@@ -4647,12 +5061,18 @@ class DashboardGridManager {
 			}
 			drag.valid = true;
 			this.applyPreviewPack(preview, drag.widget);
-			drag.widget.element.classList.add('drag-valid');
-			drag.widget.element.classList.remove('drag-invalid');
+			const targetEl = drag.widget.wrapperElement || drag.widget.element;
+			if (targetEl) {
+				targetEl.classList.add('drag-valid');
+				targetEl.classList.remove('drag-invalid');
+			}
 		} else {
 			drag.valid = false;
-			drag.widget.element.classList.remove('drag-valid');
-			drag.widget.element.classList.add('drag-invalid');
+			const targetEl = drag.widget.wrapperElement || drag.widget.element;
+			if (targetEl) {
+				targetEl.classList.remove('drag-valid');
+				targetEl.classList.add('drag-invalid');
+			}
 		}
 		event.preventDefault();
 	}
@@ -4664,13 +5084,16 @@ class DashboardGridManager {
 			clearTimeout(drag.longPressTimeout);
 		}
 		const widget = drag.widget;
-		if (drag.mode === 'pointer' && drag.pointerId != null && widget.element.releasePointerCapture) {
-			try { widget.element.releasePointerCapture(drag.pointerId); } catch {}
+		const targetEl = widget.wrapperElement || widget.element;
+		if (drag.mode === 'pointer' && drag.pointerId != null && targetEl && targetEl.releasePointerCapture) {
+			try { targetEl.releasePointerCapture(drag.pointerId); } catch {}
 		}
-		widget.element.classList.remove('is-dragging', 'drag-valid', 'drag-invalid');
-		widget.element.style.pointerEvents = '';
-		widget.element.style.transform = '';
-		widget.element.style.zIndex = '';
+		if (targetEl) {
+			targetEl.classList.remove('is-dragging', 'drag-valid', 'drag-invalid');
+			targetEl.style.pointerEvents = '';
+			targetEl.style.transform = '';
+			targetEl.style.zIndex = '';
+		}
 
 		if (commit && drag.valid && drag.previewPack) {
 			const pack = drag.previewPack;
@@ -4694,7 +5117,10 @@ class DashboardGridManager {
 		if (this.editing && !suppressFocus) {
 			requestAnimationFrame(() => {
 				try {
-					widget.element.focus({ preventScroll: false });
+					const targetEl = widget.wrapperElement || widget.element;
+					if (targetEl) {
+						targetEl.focus({ preventScroll: false });
+					}
 				} catch {}
 			});
 		}
@@ -4706,13 +5132,16 @@ class DashboardGridManager {
 		if (drag.longPressTimeout) {
 			clearTimeout(drag.longPressTimeout);
 		}
-		if (drag.mode === 'pointer' && drag.pointerId != null && drag.widget.element.releasePointerCapture) {
-			try { drag.widget.element.releasePointerCapture(drag.pointerId); } catch {}
+		const targetEl = drag.widget.wrapperElement || drag.widget.element;
+		if (drag.mode === 'pointer' && drag.pointerId != null && targetEl && targetEl.releasePointerCapture) {
+			try { targetEl.releasePointerCapture(drag.pointerId); } catch {}
 		}
-		drag.widget.element.classList.remove('is-dragging', 'drag-valid', 'drag-invalid');
-		drag.widget.element.style.pointerEvents = '';
-		drag.widget.element.style.transform = '';
-		drag.widget.element.style.zIndex = '';
+		if (targetEl) {
+			targetEl.classList.remove('is-dragging', 'drag-valid', 'drag-invalid');
+			targetEl.style.pointerEvents = '';
+			targetEl.style.transform = '';
+			targetEl.style.zIndex = '';
+		}
 		this.restoreFromSnapshot(drag.snapshot, drag.widget);
 		if (drag.touchMoveBlocker) {
 			window.removeEventListener('touchmove', drag.touchMoveBlocker, drag.touchMoveOptions || false);
@@ -4785,8 +5214,11 @@ class DashboardGridManager {
 		} else {
 			this.positionDraggedWidget(widget, drag.candidateCol, drag.candidateRow);
 		}
-		widget.element.classList.add('drag-valid');
-		widget.element.classList.remove('drag-invalid');
+		const targetEl = widget.wrapperElement || widget.element;
+		if (targetEl) {
+			targetEl.classList.add('drag-valid');
+			targetEl.classList.remove('drag-invalid');
+		}
 	}
 
 	moveKeyboardDrag(dx, dy) {
@@ -4804,8 +5236,11 @@ class DashboardGridManager {
 		}
 		drag.valid = true;
 		this.applyPreviewPack(preview, drag.widget);
-		drag.widget.element.classList.add('drag-valid');
-		drag.widget.element.classList.remove('drag-invalid');
+		const targetEl = drag.widget.wrapperElement || drag.widget.element;
+		if (targetEl) {
+			targetEl.classList.add('drag-valid');
+			targetEl.classList.remove('drag-invalid');
+		}
 	}
 }
 
@@ -4846,7 +5281,24 @@ const DashboardController = (() => {
 
 		updateTrayCategoryButtons();
 
-		const available = WidgetCatalog.filter(def => (def.category || 'test') === trayCategory);
+		// Use registry first, fallback to legacy catalog
+		let available = WidgetRegistry.getWidgetsByCategory(trayCategory);
+		
+		// Convert registry format to legacy format for compatibility
+		available = available.map(regDef => ({
+			type: regDef.type,
+			label: regDef.label,
+			size: { cols: regDef.defaultSize.w, rows: regDef.defaultSize.h },
+			color: regDef.color || '#1d4ed8',
+			textColor: regDef.textColor || '#ffffff',
+			description: regDef.description,
+			category: regDef.category
+		}));
+		
+		// Fallback to legacy catalog if registry is empty
+		if (available.length === 0) {
+			available = WidgetCatalog.filter(def => (def.category || 'test') === trayCategory);
+		}
 
 		if (!available.length) {
 			const empty = document.createElement('div');
@@ -5013,32 +5465,57 @@ window.addEventListener('resize', debounce(() => {
 
 // Initialize stats subtab navigation
 function initStatsSubtabNavigation() {
-    const subtabButtons = document.querySelectorAll('.stats-subtab-btn');
-    
-    subtabButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const subtab = btn.getAttribute('data-subtab');
-            switchStatsSubtab(subtab);
-        });
+    const nav = document.querySelector('.stats-subtab-nav');
+    if (!nav || nav.dataset.initialized === 'true') {
+        return;
+    }
 
-        // Keyboard navigation (arrow keys)
-        btn.addEventListener('keydown', (e) => {
-            const buttons = Array.from(subtabButtons);
-            const currentIndex = buttons.indexOf(btn);
-            
-            if (e.key === 'ArrowLeft' && currentIndex > 0) {
-                e.preventDefault();
-                buttons[currentIndex - 1].focus();
-                switchStatsSubtab(buttons[currentIndex - 1].getAttribute('data-subtab'));
-            } else if (e.key === 'ArrowRight' && currentIndex < buttons.length - 1) {
-                e.preventDefault();
-                buttons[currentIndex + 1].focus();
-                switchStatsSubtab(buttons[currentIndex + 1].getAttribute('data-subtab'));
-            }
-        });
+    nav.addEventListener('click', (event) => {
+        const btn = event.target.closest('.stats-subtab-btn');
+        if (!btn || !nav.contains(btn)) {
+            return;
+        }
+
+        const subtab = btn.getAttribute('data-subtab');
+        if (subtab && subtab !== currentStatsSubtab) {
+            event.preventDefault();
+            switchStatsSubtab(subtab);
+        }
     });
 
-    // Ensure TEAMS is default on first load
+    nav.addEventListener('keydown', (event) => {
+        const btn = event.target.closest('.stats-subtab-btn');
+        if (!btn || !nav.contains(btn)) {
+            return;
+        }
+
+        const buttons = Array.from(nav.querySelectorAll('.stats-subtab-btn'));
+        const currentIndex = buttons.indexOf(btn);
+        if (currentIndex === -1) {
+            return;
+        }
+
+        if (event.key === 'ArrowLeft' && currentIndex > 0) {
+            event.preventDefault();
+            const previousBtn = buttons[currentIndex - 1];
+            previousBtn.focus();
+            const subtab = previousBtn.getAttribute('data-subtab');
+            if (subtab) {
+                switchStatsSubtab(subtab);
+            }
+        } else if (event.key === 'ArrowRight' && currentIndex < buttons.length - 1) {
+            event.preventDefault();
+            const nextBtn = buttons[currentIndex + 1];
+            nextBtn.focus();
+            const subtab = nextBtn.getAttribute('data-subtab');
+            if (subtab) {
+                switchStatsSubtab(subtab);
+            }
+        }
+    });
+
+    nav.dataset.initialized = 'true';
+
     if (document.getElementById('stats-tab')?.classList.contains('active')) {
         switchStatsSubtab('teams');
     }
@@ -5096,6 +5573,9 @@ function renameTeam(team) {
 	if (ScoresByHalfModel && typeof ScoresByHalfModel.notifyTeamNamesChanged === 'function') {
 		ScoresByHalfModel.notifyTeamNamesChanged();
 	}
+	
+	// Update stats tab to refresh dynamic team name labels
+	updateStatsTab();
 }
 
 function updatePlayerLabels() {
@@ -5160,6 +5640,9 @@ function confirmChanges() {
     // Update Match Log team names
     updateMatchLogTeamNames();
     
+    // Update stats tab to refresh dynamic team name labels
+    updateStatsTab();
+    
     alert('Changes confirmed.');
 }
 
@@ -5172,67 +5655,123 @@ document.querySelectorAll('button[contenteditable="true"]').forEach(button => {
     });
 });
 
-const canvas = document.getElementById('pitch');
-const ctx = canvas.getContext('2d');
+let pitchCanvasRef = null;
+let pitchCtxRef = null;
+
+function bindPitchCanvasEvents(canvas) {
+	if (!canvas || canvas.dataset.pitchEventsBound === 'true') {
+		return;
+	}
+	canvas.addEventListener('click', handlePitchCanvasClick);
+	canvas.dataset.pitchEventsBound = 'true';
+}
+
+function getPitchCanvas() {
+	const canvas = document.getElementById('pitch');
+	if (canvas && canvas !== pitchCanvasRef) {
+		pitchCanvasRef = canvas;
+		pitchCtxRef = null;
+		bindPitchCanvasEvents(canvas);
+		if (typeof drawPitch === 'function') {
+			requestAnimationFrame(() => {
+				// Ensure the canvas still matches before drawing
+				if (pitchCanvasRef === canvas) {
+					drawPitch();
+				}
+			});
+		}
+	}
+	return pitchCanvasRef;
+}
+
+function getPitchCtx() {
+	const canvas = getPitchCanvas();
+	if (!canvas) return null;
+	if (!pitchCtxRef) {
+		pitchCtxRef = canvas.getContext('2d');
+	}
+	return pitchCtxRef;
+}
+
 const confirmCoordinatesButton = document.getElementById('confirmCoordinatesButton');
 
 let marker = { x: null, y: null };
 
 // Draw the pitch lines
 const drawLine = (startX, startY, endX, endY) => {
-    ctx.beginPath();
-    ctx.moveTo(mapX(startX), mapY(startY));
-    ctx.lineTo(mapX(endX), mapY(endY));
-    ctx.stroke();
+	const ctx = getPitchCtx();
+	if (!ctx) return;
+	ctx.beginPath();
+	ctx.moveTo(mapX(startX), mapY(startY));
+	ctx.lineTo(mapX(endX), mapY(endY));
+	ctx.stroke();
 };
 
 // Map pitch coordinates to canvas coordinates
-const mapX = x => (x / 80) * canvas.width;
-const mapY = y => canvas.height - (y / 140) * canvas.height;
+const mapX = (x) => {
+	const canvas = getPitchCanvas();
+	if (!canvas) return 0;
+	return (x / 80) * canvas.width;
+};
 
-const drawPitch = () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw the pitch lines
-    drawLine(0, 0, 80, 0);
-    drawLine(0, 0, 0, 140);
-    drawLine(0, 140, 80, 140);
-    drawLine(80, 0, 80, 140);
-    drawLine(0, 14, 80, 14);
-    drawLine(0, 21, 80, 21);
-    drawLine(0, 45, 80, 45);
-    drawLine(0, 65, 80, 65);
-    drawLine(0, 75, 80, 75);
-    drawLine(0, 95, 80, 95);
-    drawLine(0, 119, 80, 119);
-    drawLine(0, 126, 80, 126);
-    drawLine(35, 70, 45, 70);
-    drawLine(32.5, 0, 32.5, 5);
-    drawLine(47.5, 0, 47.5, 5);
-    drawLine(32.5, 5, 47.5, 5);
-    drawLine(30, 0, 30, 14);
-    drawLine(50, 0, 50, 14);
-    drawLine(32.5, 140, 32.5, 135);
-    drawLine(47.5, 140, 47.5, 135);
-    drawLine(32.5, 135, 47.5, 135);
-    drawLine(30, 140, 30, 126);
-    drawLine(50, 140, 50, 126);
-    drawLine(36.5, 0, 36.5, -3);
-    drawLine(43.5, 0, 43.5, -3);
-    drawLine(36.5, -3, 43.5, -3);
-    drawLine(36.5, 140, 36.5, 143);
-    drawLine(43.5, 140, 43.5, 143);
-    drawLine(36.5, 143, 43.5, 143);
-    // Draw the rotated semicircle
-    drawRotatedSemicircle(rotatedSemicircle);
-    // Draw the clockwise rotated semicircle
-    drawClockwiseRotatedSemicircle(clockwiseRotatedSemicircle);
-    // Arc at the bottom
-    arcBottom = generateArcPoints(40, 0, 40, Math.atan2(21 - 0, 6 - 40), Math.atan2(21 - 0, 74 - 40), 100);
-    drawArc(arcBottom);
-    // Arc at the top
-    arcTop = generateArcPoints(40, 140, 40, Math.atan2(119 - 140, 74 - 40), Math.atan2(119 - 140, 6 - 40), 100);
-    drawArc(arcTop);
+const mapY = (y) => {
+	const canvas = getPitchCanvas();
+	if (!canvas) return 0;
+	return canvas.height - (y / 140) * canvas.height;
+};
+
+function drawPitch() {
+	const ctx = getPitchCtx();
+	const canvas = getPitchCanvas();
+	if (!ctx || !canvas) return;
+
+	ctx.save();
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.lineWidth = 2;
+	ctx.strokeStyle = '#ffffff';
+
+	// Draw the pitch lines
+	drawLine(0, 0, 80, 0);
+	drawLine(0, 0, 0, 140);
+	drawLine(0, 140, 80, 140);
+	drawLine(80, 0, 80, 140);
+	drawLine(0, 14, 80, 14);
+	drawLine(0, 21, 80, 21);
+	drawLine(0, 45, 80, 45);
+	drawLine(0, 65, 80, 65);
+	drawLine(0, 75, 80, 75);
+	drawLine(0, 95, 80, 95);
+	drawLine(0, 119, 80, 119);
+	drawLine(0, 126, 80, 126);
+	drawLine(35, 70, 45, 70);
+	drawLine(32.5, 0, 32.5, 5);
+	drawLine(47.5, 0, 47.5, 5);
+	drawLine(32.5, 5, 47.5, 5);
+	drawLine(30, 0, 30, 14);
+	drawLine(50, 0, 50, 14);
+	drawLine(32.5, 140, 32.5, 135);
+	drawLine(47.5, 140, 47.5, 135);
+	drawLine(32.5, 135, 47.5, 135);
+	drawLine(30, 140, 30, 126);
+	drawLine(50, 140, 50, 126);
+	drawLine(36.5, 0, 36.5, -3);
+	drawLine(43.5, 0, 43.5, -3);
+	drawLine(36.5, -3, 43.5, -3);
+	drawLine(36.5, 140, 36.5, 143);
+	drawLine(43.5, 140, 43.5, 143);
+	drawLine(36.5, 143, 43.5, 143);
+	// Draw the rotated semicircle
+	drawRotatedSemicircle(rotatedSemicircle);
+	// Draw the clockwise rotated semicircle
+	drawClockwiseRotatedSemicircle(clockwiseRotatedSemicircle);
+	// Arc at the bottom
+	arcBottom = generateArcPoints(40, 0, 40, Math.atan2(21 - 0, 6 - 40), Math.atan2(21 - 0, 74 - 40), 100);
+	drawArc(arcBottom);
+	// Arc at the top
+	arcTop = generateArcPoints(40, 140, 40, Math.atan2(119 - 140, 74 - 40), Math.atan2(119 - 140, 6 - 40), 100);
+	drawArc(arcTop);
+	ctx.restore();
 }
 
 function generateRotatedSemicircle(centerX, centerY, radius, points) {
@@ -5247,6 +5786,8 @@ const rotatedSemicircle = generateRotatedSemicircle(40, 119, 13, 100);
 
 // Function to draw the rotated semicircle
 function drawRotatedSemicircle(semicircle) {
+    const ctx = getPitchCtx();
+    if (!ctx) return;
     ctx.beginPath();
     semicircle.forEach((point, index) => {
         if (index === 0) {
@@ -5270,6 +5811,8 @@ const clockwiseRotatedSemicircle = generateClockwiseRotatedSemicircle(40, 21, 13
 
 // Function to draw the clockwise rotated semicircle
 function drawClockwiseRotatedSemicircle(semicircle) {
+    const ctx = getPitchCtx();
+    if (!ctx) return;
     ctx.beginPath();
     semicircle.forEach((point, index) => {
         if (index === 0) {
@@ -5297,6 +5840,8 @@ const generateArcPoints = (centerX, centerY, radius, startAngle, endAngle, point
 
 // Function to draw arc on the canvas
 const drawArc = (arcPoints) => {
+    const ctx = getPitchCtx();
+    if (!ctx) return;
     ctx.beginPath();
     arcPoints.forEach((point, index) => {
         if (index === 0) {
@@ -5323,57 +5868,66 @@ const drawReviewArc = (arcPoints) => {
 
 // Draw the marker
 const drawMarker = (x, y, color) => {
+    const ctx = getPitchCtx();
+    if (!ctx) return;
+    ctx.save();
     ctx.beginPath();
     ctx.arc(mapX(x), mapY(y), 5, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.restore();
 };
 
 // Initial draw
 drawPitch();
 
-canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / canvas.width) * 80;
-    const y = 140 - ((e.clientY - rect.top) / canvas.height) * 140;
-    
-    if (gridSelectionActive) {
-        // GRID mode: compute grid area and highlight
-        const gridId = getGridFromPoint(x, y);
-        if (gridId) {
-            selectedGrid = gridId;
-            drawPitch();
-            drawGridHighlight(gridId);
-            const disp1 = document.getElementById('coordinate-display-1');
-            const disp2 = document.getElementById('coordinate-display-2');
-            if (disp1) disp1.textContent = `Selected: ${gridId}`;
-            if (disp2) disp2.style.display = 'none';
-        }
-        return;
-    }
+function handlePitchCanvasClick(e) {
+	const canvas = getPitchCanvas();
+	if (!canvas) return;
 
-    // 💡 Restrict 2-Point - Score to valid locations
-    if (currentAction === '2-Point - Score' && !isValid2PointLocation(x, y)) {
-        showCoordinateWarning('Invalid location: 2-point scores must be outside both arcs and between the 21m lines.');
-        return;
-    }
+	const rect = canvas.getBoundingClientRect();
+	const x = ((e.clientX - rect.left) / canvas.width) * 80;
+	const y = 140 - ((e.clientY - rect.top) / canvas.height) * 140;
 
-    if (!firstMarkerConfirmed) {
-        marker1.x = x.toFixed(2);
-        marker1.y = y.toFixed(2);
-        drawPitch();
-        drawMarker(marker1.x, marker1.y, 'blue'); // First marker in blue
-        document.getElementById('coordinate-display-1').textContent = `X1: ${marker1.x}, Y1: ${marker1.y}`;
-    } else {
-        marker2.x = x.toFixed(2);
-        marker2.y = y.toFixed(2);
-        drawPitch();
-        drawMarker(marker1.x, marker1.y, 'blue'); // Redraw the first marker
-        drawMarker(marker2.x, marker2.y, 'red'); // Second marker in red
-        document.getElementById('coordinate-display-2').textContent = `X2: ${marker2.x}, Y2: ${marker2.y}`;
-    }
-});
+	if (gridSelectionActive) {
+		// GRID mode: compute grid area and highlight
+		const gridId = getGridFromPoint(x, y);
+		if (gridId) {
+			selectedGrid = gridId;
+			drawPitch();
+			drawGridHighlight(gridId);
+			const disp1 = document.getElementById('coordinate-display-1');
+			const disp2 = document.getElementById('coordinate-display-2');
+			if (disp1) disp1.textContent = `Selected: ${gridId}`;
+			if (disp2) disp2.style.display = 'none';
+		}
+		return;
+	}
+
+	// 💡 Restrict 2-Point - Score to valid locations
+	if (currentAction === '2-Point - Score' && !isValid2PointLocation(x, y)) {
+		showCoordinateWarning('Invalid location: 2-point scores must be outside both arcs and between the 21m lines.');
+		return;
+	}
+
+	if (!firstMarkerConfirmed) {
+		marker1.x = x.toFixed(2);
+		marker1.y = y.toFixed(2);
+		drawPitch();
+		drawMarker(marker1.x, marker1.y, 'blue'); // First marker in blue
+		document.getElementById('coordinate-display-1').textContent = `X1: ${marker1.x}, Y1: ${marker1.y}`;
+	} else {
+		marker2.x = x.toFixed(2);
+		marker2.y = y.toFixed(2);
+		drawPitch();
+		drawMarker(marker1.x, marker1.y, 'blue'); // Redraw the first marker
+		drawMarker(marker2.x, marker2.y, 'red'); // Second marker in red
+		document.getElementById('coordinate-display-2').textContent = `X2: ${marker2.x}, Y2: ${marker2.y}`;
+	}
+}
 
 // --- code for 2-Point coordinates ---
 // arcTop is now defined globally in drawPitch function
@@ -5506,6 +6060,10 @@ function getGridFromPoint(x, y) {
 }
 // Draw highlight for selected GRID area
 function drawGridHighlight(gridId) {
+    const canvas = getPitchCanvas();
+    const ctx = getPitchCtx();
+    if (!canvas || !ctx) return;
+
     // Compose highlight offscreen so we don't affect pitch lines
     const off = document.createElement('canvas');
     off.width = canvas.width;
@@ -6909,12 +7467,13 @@ function showSummaryBox(x, y, entry, color) {
         },
         '45 Entry': {
             title: '45 Entry',
-            fields: entry.player2 ? [
-                { label: 'Player 1', value: entry.player },
-                { label: 'Player 2', value: entry.player2 },
+            fields: [
                 { label: 'Type', value: entry.mode }
-            ] : [
-                { label: 'Player', value: entry.player },
+            ]
+        },
+        'Opp. 45 Entry': {
+            title: 'Opp. 45 Entry',
+            fields: [
                 { label: 'Type', value: entry.mode }
             ]
         },
@@ -8020,6 +8579,7 @@ function checkActionFlow(action) {
         'Point - Miss',
         'Goal - Miss',
         '45 Entry',
+        'Opp. 45 Entry',
         'Source of Shot',
         'Free Won',
         'Handpass',
@@ -8317,18 +8877,20 @@ function applyTeamCustomization(teamNumber) {
     for (let i = 1; i <= 30; i++) {
         const playerButton = document.getElementById(`${playerPrefix}${i}-button`);
         if (playerButton) {
-            playerButton.style.background = style.background + ' !important';
-            playerButton.style.color = style.color + ' !important';
-            if (style.border) playerButton.style.border = style.border;
-            
-            // Add background-size for checkered pattern
-            if (customization.pattern === 'checkered' && customization.hasSecondary) {
-                playerButton.style.backgroundSize = '20px 20px';
-            }
-            
-            // Remove any conflicting CSS classes that might override our styles
             playerButton.style.setProperty('background', style.background, 'important');
             playerButton.style.setProperty('color', style.color, 'important');
+
+            if (style.border) {
+                playerButton.style.setProperty('border', style.border, 'important');
+            } else {
+                playerButton.style.removeProperty('border');
+            }
+            
+            if (customization.pattern === 'checkered' && customization.hasSecondary) {
+                playerButton.style.backgroundSize = '20px 20px';
+            } else {
+                playerButton.style.removeProperty('background-size');
+            }
         }
     }
     
@@ -8338,10 +8900,16 @@ function applyTeamCustomization(teamNumber) {
         document.querySelectorAll('#player-buttons .player-button[aria-label^="Select Player"]').forEach(button => {
             button.style.setProperty('background', style.background, 'important');
             button.style.setProperty('color', style.color, 'important');
-            if (style.border) button.style.border = style.border;
+            if (style.border) {
+                button.style.setProperty('border', style.border, 'important');
+            } else {
+                button.style.removeProperty('border');
+            }
             
             if (customization.pattern === 'checkered' && customization.hasSecondary) {
                 button.style.backgroundSize = '20px 20px';
+            } else {
+                button.style.removeProperty('background-size');
             }
         });
         
@@ -8349,10 +8917,16 @@ function applyTeamCustomization(teamNumber) {
         document.querySelectorAll('#player-buttons-second .player-button[aria-label^="Select Receiver"]').forEach(button => {
             button.style.setProperty('background', style.background, 'important');
             button.style.setProperty('color', style.color, 'important');
-            if (style.border) button.style.border = style.border;
+            if (style.border) {
+                button.style.setProperty('border', style.border, 'important');
+            } else {
+                button.style.removeProperty('border');
+            }
             
             if (customization.pattern === 'checkered' && customization.hasSecondary) {
                 button.style.backgroundSize = '20px 20px';
+            } else {
+                button.style.removeProperty('background-size');
             }
         });
     } else if (teamNumber === 2) {
@@ -8360,10 +8934,16 @@ function applyTeamCustomization(teamNumber) {
         document.querySelectorAll('#player-buttons-team2 .player-button[aria-label^="Select Player"]').forEach(button => {
             button.style.setProperty('background', style.background, 'important');
             button.style.setProperty('color', style.color, 'important');
-            if (style.border) button.style.border = style.border;
+            if (style.border) {
+                button.style.setProperty('border', style.border, 'important');
+            } else {
+                button.style.removeProperty('border');
+            }
             
             if (customization.pattern === 'checkered' && customization.hasSecondary) {
                 button.style.backgroundSize = '20px 20px';
+            } else {
+                button.style.removeProperty('background-size');
             }
         });
         
@@ -8371,10 +8951,16 @@ function applyTeamCustomization(teamNumber) {
         document.querySelectorAll('#player-buttons-second-team2 .player-button[aria-label^="Select Player"]').forEach(button => {
             button.style.setProperty('background', style.background, 'important');
             button.style.setProperty('color', style.color, 'important');
-            if (style.border) button.style.border = style.border;
+            if (style.border) {
+                button.style.setProperty('border', style.border, 'important');
+            } else {
+                button.style.removeProperty('border');
+            }
             
             if (customization.pattern === 'checkered' && customization.hasSecondary) {
                 button.style.backgroundSize = '20px 20px';
+            } else {
+                button.style.removeProperty('background-size');
             }
         });
     }
@@ -8752,7 +9338,8 @@ function getTeamFromAction(action) {
         'Point - Against',
         '2-Point - Against', 
         'Goal - Against',
-        'Miss - Against'
+        'Miss - Against',
+        'Opp. 45 Entry'
     ];
     
     // Check always Team 1 actions first - but consider Match Log context
@@ -10051,6 +10638,99 @@ function updateStatsTab() {
         team2ScoresElement.textContent = `${team2TotalScores} (${team2GoalScore} - ${team2TwoPointScore} - ${team2PointScore})`;
     }
     
+    // Define dead ball modes
+    const deadBallModes = ['Freekick Foot', 'Freekick Ground', '45', 'Off. Mark', 'Penalty', 'Freekick'];
+    
+    // Calculate scores from open play and dead balls for each team
+    let team1OpenPlayGoal = 0, team1OpenPlayTwoPoint = 0, team1OpenPlayPoint = 0;
+    let team1DeadBallGoal = 0, team1DeadBallTwoPoint = 0, team1DeadBallPoint = 0;
+    let team2OpenPlayGoal = 0, team2OpenPlayTwoPoint = 0, team2OpenPlayPoint = 0;
+    let team2DeadBallGoal = 0, team2DeadBallTwoPoint = 0, team2DeadBallPoint = 0;
+    
+    actionsLog.forEach(entry => {
+        if (scoreActions.includes(entry.action)) {
+            const teamCode = getTeamFromAction(entry);
+            const isDeadBall = entry.mode && deadBallModes.includes(entry.mode);
+            
+            if (teamCode === 'team1') {
+                if (isDeadBall) {
+                    if (entry.action === 'Goal - Score') team1DeadBallGoal++;
+                    else if (entry.action === '2-Point - Score') team1DeadBallTwoPoint++;
+                    else if (entry.action === 'Point - Score') team1DeadBallPoint++;
+                } else {
+                    if (entry.action === 'Goal - Score') team1OpenPlayGoal++;
+                    else if (entry.action === '2-Point - Score') team1OpenPlayTwoPoint++;
+                    else if (entry.action === 'Point - Score') team1OpenPlayPoint++;
+                }
+            } else if (teamCode === 'team2') {
+                if (isDeadBall) {
+                    if (entry.action === 'Goal - Score') team2DeadBallGoal++;
+                    else if (entry.action === '2-Point - Score') team2DeadBallTwoPoint++;
+                    else if (entry.action === 'Point - Score') team2DeadBallPoint++;
+                } else {
+                    if (entry.action === 'Goal - Score') team2OpenPlayGoal++;
+                    else if (entry.action === '2-Point - Score') team2OpenPlayTwoPoint++;
+                    else if (entry.action === 'Point - Score') team2OpenPlayPoint++;
+                }
+            }
+        }
+    });
+    
+    // Display "From Open Play" stats
+    const team1FromOpenPlayElement = document.getElementById('stats-team-1-from-open-play');
+    const team2FromOpenPlayElement = document.getElementById('stats-team-2-from-open-play');
+    
+    if (team1FromOpenPlayElement) {
+        const team1OpenPlayTotal = team1OpenPlayGoal + team1OpenPlayTwoPoint + team1OpenPlayPoint;
+        team1FromOpenPlayElement.textContent = `${team1OpenPlayTotal} (${team1OpenPlayGoal} - ${team1OpenPlayTwoPoint} - ${team1OpenPlayPoint})`;
+    }
+    
+    if (team2FromOpenPlayElement) {
+        const team2OpenPlayTotal = team2OpenPlayGoal + team2OpenPlayTwoPoint + team2OpenPlayPoint;
+        team2FromOpenPlayElement.textContent = `${team2OpenPlayTotal} (${team2OpenPlayGoal} - ${team2OpenPlayTwoPoint} - ${team2OpenPlayPoint})`;
+    }
+    
+    // Display "From Dead Balls" stats
+    const team1FromDeadBallsElement = document.getElementById('stats-team-1-from-dead-balls');
+    const team2FromDeadBallsElement = document.getElementById('stats-team-2-from-dead-balls');
+    
+    if (team1FromDeadBallsElement) {
+        const team1DeadBallTotal = team1DeadBallGoal + team1DeadBallTwoPoint + team1DeadBallPoint;
+        team1FromDeadBallsElement.textContent = `${team1DeadBallTotal} (${team1DeadBallGoal} - ${team1DeadBallTwoPoint} - ${team1DeadBallPoint})`;
+    }
+    
+    if (team2FromDeadBallsElement) {
+        const team2DeadBallTotal = team2DeadBallGoal + team2DeadBallTwoPoint + team2DeadBallPoint;
+        team2FromDeadBallsElement.textContent = `${team2DeadBallTotal} (${team2DeadBallGoal} - ${team2DeadBallTwoPoint} - ${team2DeadBallPoint})`;
+    }
+    
+    // Display duplicate "From Open Play" and "From Dead Balls" in Scores subgroup
+    const team1ScoresFromOpenPlayElement = document.getElementById('stats-team-1-scores-from-open-play');
+    const team2ScoresFromOpenPlayElement = document.getElementById('stats-team-2-scores-from-open-play');
+    
+    if (team1ScoresFromOpenPlayElement) {
+        const team1OpenPlayTotal = team1OpenPlayGoal + team1OpenPlayTwoPoint + team1OpenPlayPoint;
+        team1ScoresFromOpenPlayElement.textContent = `${team1OpenPlayTotal} (${team1OpenPlayGoal} - ${team1OpenPlayTwoPoint} - ${team1OpenPlayPoint})`;
+    }
+    
+    if (team2ScoresFromOpenPlayElement) {
+        const team2OpenPlayTotal = team2OpenPlayGoal + team2OpenPlayTwoPoint + team2OpenPlayPoint;
+        team2ScoresFromOpenPlayElement.textContent = `${team2OpenPlayTotal} (${team2OpenPlayGoal} - ${team2OpenPlayTwoPoint} - ${team2OpenPlayPoint})`;
+    }
+    
+    const team1ScoresFromDeadBallsElement = document.getElementById('stats-team-1-scores-from-dead-balls');
+    const team2ScoresFromDeadBallsElement = document.getElementById('stats-team-2-scores-from-dead-balls');
+    
+    if (team1ScoresFromDeadBallsElement) {
+        const team1DeadBallTotal = team1DeadBallGoal + team1DeadBallTwoPoint + team1DeadBallPoint;
+        team1ScoresFromDeadBallsElement.textContent = `${team1DeadBallTotal} (${team1DeadBallGoal} - ${team1DeadBallTwoPoint} - ${team1DeadBallPoint})`;
+    }
+    
+    if (team2ScoresFromDeadBallsElement) {
+        const team2DeadBallTotal = team2DeadBallGoal + team2DeadBallTwoPoint + team2DeadBallPoint;
+        team2ScoresFromDeadBallsElement.textContent = `${team2DeadBallTotal} (${team2DeadBallGoal} - ${team2DeadBallTwoPoint} - ${team2DeadBallPoint})`;
+    }
+    
     // Calculate and display shot conversion percentages
     const team1ConversionElement = document.getElementById('stats-team-1-conversion');
     const team2ConversionElement = document.getElementById('stats-team-2-conversion');
@@ -10074,9 +10754,9 @@ function updateStatsTab() {
     let team145Entries = 0;
     let team245Entries = 0;
     
-    // Count 45 Entry actions for each team
+    // Count 45 Entry actions for each team (includes both '45 Entry' and 'Opp. 45 Entry')
     actionsLog.forEach(entry => {
-        if (entry.action === '45 Entry') {
+        if (entry.action === '45 Entry' || entry.action === 'Opp. 45 Entry') {
             if (entry.teamNumber === 1) {
                 team145Entries++;
             } else if (entry.teamNumber === 2) {
@@ -10115,71 +10795,152 @@ function updateStatsTab() {
     const team1KickoutsElement = document.getElementById('stats-team-1-kickouts');
     const team2KickoutsElement = document.getElementById('stats-team-2-kickouts');
     
+    // Track kickout statistics
     let team1Kickouts = 0;
     let team2Kickouts = 0;
-    let team1KickoutsWon = 0;
-    let team2KickoutsWon = 0;
-    let team1Uncontested = 0;
-    let team2Uncontested = 0;
-    let team1UncontestedWon = 0;
-    let team2UncontestedWon = 0;
+    
+    // Track wins/losses for each team's kickouts
+    let team1KickoutsTeam1Won = 0;  // Team 1's kickouts won by Team 1
+    let team1KickoutsTeam2Won = 0;  // Team 1's kickouts won by Team 2
+    let team2KickoutsTeam1Won = 0;  // Team 2's kickouts won by Team 1
+    let team2KickoutsTeam2Won = 0;  // Team 2's kickouts won by Team 2
+    
+    // Track contested/uncontested
     let team1Contested = 0;
-    let team2Contested = 0;
     let team1ContestedWon = 0;
+    let team2Contested = 0;
     let team2ContestedWon = 0;
+    let team1Uncontested = 0;
+    let team1UncontestedWon = 0;
+    let team2Uncontested = 0;
+    let team2UncontestedWon = 0;
+    
+    // Track short/long kickouts
+    let team1ShortKickouts = 0;
+    let team1ShortKickoutsWon = 0;
+    let team1LongKickouts = 0;
+    let team1LongKickoutsWon = 0;
+    let team2ShortKickouts = 0;
+    let team2ShortKickoutsWon = 0;
+    let team2LongKickouts = 0;
+    let team2LongKickoutsWon = 0;
+    
+    // Helper function to parse Y coordinate
+    function parseYCoordinate(coordinates) {
+        if (!coordinates || typeof coordinates !== 'string') return null;
+        if (coordinates.startsWith('GRID')) return null; // Skip GRID coordinates
+        
+        try {
+            const coords = coordinates.slice(1, -1).split(', ');
+            if (coords.length >= 2) {
+                const y = parseFloat(coords[1]);
+                return isNaN(y) ? null : y;
+            }
+        } catch (e) {
+            return null;
+        }
+        return null;
+    }
+    
+    // Helper function to check if kickout was won
+    function isKickoutWon(mode) {
+        return mode === 'Won Clean' || mode === 'Won Break' || mode === 'Won Sideline' || mode === 'Won Foul';
+    }
+    
+    // Helper function to check if kickout was lost
+    function isKickoutLost(mode) {
+        return mode === 'Lost Clean' || mode === 'Lost Break' || mode === 'Lost Sideline' || mode === 'Lost Foul';
+    }
     
     actionsLog.forEach(entry => {
         if (entry.action === 'Our Kickout') {
             if (entry.teamNumber === 1) {
                 team1Kickouts++;
-                // Check if kickout was won (Screen 1 = Won Clean/Break/Sideline/Foul)
-                if (entry.mode === 'Won Clean' || entry.mode === 'Won Break' || entry.mode === 'Won Sideline' || entry.mode === 'Won Foul') {
-                    team1KickoutsWon++;
+                
+                // Track wins/losses for Team 1's kickouts
+                if (isKickoutWon(entry.mode)) {
+                    team1KickoutsTeam1Won++;
+                } else if (isKickoutLost(entry.mode)) {
+                    team1KickoutsTeam2Won++;
                 }
-                // Check if kickout was uncontested (Screen 2 = Uncontested)
-                if (entry.definition === 'Uncontested') {
+                
+                // Track contested/uncontested
+                if (entry.definition === 'Contested') {
+                    team1Contested++;
+                    if (isKickoutWon(entry.mode)) {
+                        team1ContestedWon++;
+                    }
+                } else if (entry.definition === 'Uncontested') {
                     team1Uncontested++;
-                    // Check if uncontested kickout was also won
-                    if (entry.mode === 'Won Clean' || entry.mode === 'Won Break' || entry.mode === 'Won Sideline' || entry.mode === 'Won Foul') {
+                    if (isKickoutWon(entry.mode)) {
                         team1UncontestedWon++;
                     }
                 }
-                // Check if kickout was contested (Screen 2 = Contested)
-                if (entry.definition === 'Contested') {
-                    team1Contested++;
-                    // Check if contested kickout was also won
-                    if (entry.mode === 'Won Clean' || entry.mode === 'Won Break' || entry.mode === 'Won Sideline' || entry.mode === 'Won Foul') {
-                        team1ContestedWon++;
+                
+                // Track short/long kickouts based on Y coordinate
+                const y = parseYCoordinate(entry.coordinates1);
+                if (y !== null) {
+                    if (y < 45 || y > 95) {
+                        // Short kickout
+                        team1ShortKickouts++;
+                        if (isKickoutWon(entry.mode)) {
+                            team1ShortKickoutsWon++;
+                        }
+                    } else if (y >= 45 && y <= 95) {
+                        // Long kickout
+                        team1LongKickouts++;
+                        if (isKickoutWon(entry.mode)) {
+                            team1LongKickoutsWon++;
+                        }
                     }
                 }
             }
         } else if (entry.action === 'Opp. Kickout') {
             if (entry.teamNumber === 2) {
                 team2Kickouts++;
-                // Check if kickout was won (Screen 1 = Won Clean/Break/Sideline/Foul)
-                if (entry.mode === 'Won Clean' || entry.mode === 'Won Break' || entry.mode === 'Won Sideline' || entry.mode === 'Won Foul') {
-                    team2KickoutsWon++;
+                
+                // Track wins/losses for Team 2's kickouts
+                if (isKickoutWon(entry.mode)) {
+                    team2KickoutsTeam2Won++;
+                } else if (isKickoutLost(entry.mode)) {
+                    team2KickoutsTeam1Won++;
                 }
-                // Check if kickout was uncontested (Screen 2 = Uncontested)
-                if (entry.definition === 'Uncontested') {
+                
+                // Track contested/uncontested
+                if (entry.definition === 'Contested') {
+                    team2Contested++;
+                    if (isKickoutWon(entry.mode)) {
+                        team2ContestedWon++;
+                    }
+                } else if (entry.definition === 'Uncontested') {
                     team2Uncontested++;
-                    // Check if uncontested kickout was also won
-                    if (entry.mode === 'Won Clean' || entry.mode === 'Won Break' || entry.mode === 'Won Sideline' || entry.mode === 'Won Foul') {
+                    if (isKickoutWon(entry.mode)) {
                         team2UncontestedWon++;
                     }
                 }
-                // Check if kickout was contested (Screen 2 = Contested)
-                if (entry.definition === 'Contested') {
-                    team2Contested++;
-                    // Check if contested kickout was also won
-                    if (entry.mode === 'Won Clean' || entry.mode === 'Won Break' || entry.mode === 'Won Sideline' || entry.mode === 'Won Foul') {
-                        team2ContestedWon++;
+                
+                // Track short/long kickouts based on Y coordinate
+                const y = parseYCoordinate(entry.coordinates1);
+                if (y !== null) {
+                    if (y < 45 || y > 95) {
+                        // Short kickout
+                        team2ShortKickouts++;
+                        if (isKickoutWon(entry.mode)) {
+                            team2ShortKickoutsWon++;
+                        }
+                    } else if (y >= 45 && y <= 95) {
+                        // Long kickout
+                        team2LongKickouts++;
+                        if (isKickoutWon(entry.mode)) {
+                            team2LongKickoutsWon++;
+                        }
                     }
                 }
             }
         }
     });
     
+    // Display total kickouts
     if (team1KickoutsElement) {
         team1KickoutsElement.textContent = team1Kickouts;
     }
@@ -10188,47 +10949,328 @@ function updateStatsTab() {
         team2KickoutsElement.textContent = team2Kickouts;
     }
     
-    // Calculate and display kickout win percentages
-    const team1KickoutsWonElement = document.getElementById('stats-team-1-kickouts-won');
-    const team2KickoutsWonElement = document.getElementById('stats-team-2-kickouts-won');
+    // Get current team names
+    const team1Button = document.getElementById('rename-team-1-button');
+    const team2Button = document.getElementById('rename-team-2-button');
+    const team1Name = team1Button ? team1Button.textContent.trim() : 'Team 1';
+    const team2Name = team2Button ? team2Button.textContent.trim() : 'Team 2';
     
-    if (team1KickoutsWonElement) {
-        const team1WinPercentage = team1Kickouts > 0 ? Math.round((team1KickoutsWon / team1Kickouts) * 100) : 0;
-        team1KickoutsWonElement.textContent = `${team1KickoutsWon}/${team1Kickouts} (${team1WinPercentage}% Won)`;
+    // Update dynamic labels for Team 1 Kickouts Won and Team 2 Kickouts Won
+    const team1KickoutsWonLabel = document.getElementById('stats-label-team1-kickouts-won');
+    const team2KickoutsWonLabel = document.getElementById('stats-label-team2-kickouts-won');
+    
+    if (team1KickoutsWonLabel) {
+        team1KickoutsWonLabel.textContent = `${team1Name} Kickouts Won`;
     }
     
-    if (team2KickoutsWonElement) {
-        const team2WinPercentage = team2Kickouts > 0 ? Math.round((team2KickoutsWon / team2Kickouts) * 100) : 0;
-        team2KickoutsWonElement.textContent = `${team2KickoutsWon}/${team2Kickouts} (${team2WinPercentage}% Won)`;
+    if (team2KickoutsWonLabel) {
+        team2KickoutsWonLabel.textContent = `${team2Name} Kickouts Won`;
     }
     
-    // Calculate and display uncontested kickout win percentages
-    const team1UncontestedElement = document.getElementById('stats-team-1-uncontested');
-    const team2UncontestedElement = document.getElementById('stats-team-2-uncontested');
+    // Display Team 1 Kickouts Won (Team 1 won / Team 2 won)
+    const team1KickoutsTeam1WonElement = document.getElementById('stats-team-1-kickouts-team1-won');
+    const team1KickoutsTeam2WonElement = document.getElementById('stats-team-1-kickouts-team2-won');
     
-    if (team1UncontestedElement) {
-        const team1UncontestedWinPercentage = team1Uncontested > 0 ? Math.round((team1UncontestedWon / team1Uncontested) * 100) : 0;
-        team1UncontestedElement.textContent = `${team1UncontestedWon}/${team1Uncontested} (${team1UncontestedWinPercentage}% Won)`;
+    if (team1KickoutsTeam1WonElement) {
+        const team1Percentage = team1Kickouts > 0 ? Math.round((team1KickoutsTeam1Won / team1Kickouts) * 100) : 0;
+        team1KickoutsTeam1WonElement.textContent = `${team1KickoutsTeam1Won} (${team1Percentage}%)`;
     }
     
-    if (team2UncontestedElement) {
-        const team2UncontestedWinPercentage = team2Uncontested > 0 ? Math.round((team2UncontestedWon / team2Uncontested) * 100) : 0;
-        team2UncontestedElement.textContent = `${team2UncontestedWon}/${team2Uncontested} (${team2UncontestedWinPercentage}% Won)`;
+    if (team1KickoutsTeam2WonElement) {
+        const team2Percentage = team1Kickouts > 0 ? Math.round((team1KickoutsTeam2Won / team1Kickouts) * 100) : 0;
+        team1KickoutsTeam2WonElement.textContent = `${team1KickoutsTeam2Won} (${team2Percentage}%)`;
     }
     
-    // Calculate and display contested kickout win percentages
-    const team1ContestedElement = document.getElementById('stats-team-1-contested');
-    const team2ContestedElement = document.getElementById('stats-team-2-contested');
+    // Display Team 2 Kickouts Won (Team 1 won / Team 2 won)
+    const team2KickoutsTeam1WonElement = document.getElementById('stats-team-2-kickouts-team1-won');
+    const team2KickoutsTeam2WonElement = document.getElementById('stats-team-2-kickouts-team2-won');
     
-    if (team1ContestedElement) {
+    if (team2KickoutsTeam1WonElement) {
+        const team1Percentage = team2Kickouts > 0 ? Math.round((team2KickoutsTeam1Won / team2Kickouts) * 100) : 0;
+        team2KickoutsTeam1WonElement.textContent = `${team2KickoutsTeam1Won} (${team1Percentage}%)`;
+    }
+    
+    if (team2KickoutsTeam2WonElement) {
+        const team2Percentage = team2Kickouts > 0 ? Math.round((team2KickoutsTeam2Won / team2Kickouts) * 100) : 0;
+        team2KickoutsTeam2WonElement.textContent = `${team2KickoutsTeam2Won} (${team2Percentage}%)`;
+    }
+    
+    // Display contested won
+    const team1ContestedWonElement = document.getElementById('stats-team-1-contested-won');
+    const team2ContestedWonElement = document.getElementById('stats-team-2-contested-won');
+    
+    if (team1ContestedWonElement) {
         const team1ContestedWinPercentage = team1Contested > 0 ? Math.round((team1ContestedWon / team1Contested) * 100) : 0;
-        team1ContestedElement.textContent = `${team1ContestedWon}/${team1Contested} (${team1ContestedWinPercentage}% Won)`;
+        team1ContestedWonElement.textContent = `${team1ContestedWon}/${team1Contested} (${team1ContestedWinPercentage}%)`;
     }
     
-    if (team2ContestedElement) {
+    if (team2ContestedWonElement) {
         const team2ContestedWinPercentage = team2Contested > 0 ? Math.round((team2ContestedWon / team2Contested) * 100) : 0;
-        team2ContestedElement.textContent = `${team2ContestedWon}/${team2Contested} (${team2ContestedWinPercentage}% Won)`;
+        team2ContestedWonElement.textContent = `${team2ContestedWon}/${team2Contested} (${team2ContestedWinPercentage}%)`;
     }
+    
+    // Display uncontested won
+    const team1UncontestedWonElement = document.getElementById('stats-team-1-uncontested-won');
+    const team2UncontestedWonElement = document.getElementById('stats-team-2-uncontested-won');
+    
+    if (team1UncontestedWonElement) {
+        const team1UncontestedWinPercentage = team1Uncontested > 0 ? Math.round((team1UncontestedWon / team1Uncontested) * 100) : 0;
+        team1UncontestedWonElement.textContent = `${team1UncontestedWon}/${team1Uncontested} (${team1UncontestedWinPercentage}%)`;
+    }
+    
+    if (team2UncontestedWonElement) {
+        const team2UncontestedWinPercentage = team2Uncontested > 0 ? Math.round((team2UncontestedWon / team2Uncontested) * 100) : 0;
+        team2UncontestedWonElement.textContent = `${team2UncontestedWon}/${team2Uncontested} (${team2UncontestedWinPercentage}%)`;
+    }
+    
+    // Display short kickouts
+    const team1ShortKickoutsElement = document.getElementById('stats-team-1-short-kickouts');
+    const team2ShortKickoutsElement = document.getElementById('stats-team-2-short-kickouts');
+    
+    if (team1ShortKickoutsElement) {
+        const team1ShortWinPercentage = team1ShortKickouts > 0 ? Math.round((team1ShortKickoutsWon / team1ShortKickouts) * 100) : 0;
+        team1ShortKickoutsElement.textContent = `${team1ShortKickoutsWon}/${team1ShortKickouts} (${team1ShortWinPercentage}%)`;
+    }
+    
+    if (team2ShortKickoutsElement) {
+        const team2ShortWinPercentage = team2ShortKickouts > 0 ? Math.round((team2ShortKickoutsWon / team2ShortKickouts) * 100) : 0;
+        team2ShortKickoutsElement.textContent = `${team2ShortKickoutsWon}/${team2ShortKickouts} (${team2ShortWinPercentage}%)`;
+    }
+    
+    // Display long kickouts
+    const team1LongKickoutsElement = document.getElementById('stats-team-1-long-kickouts');
+    const team2LongKickoutsElement = document.getElementById('stats-team-2-long-kickouts');
+    
+    if (team1LongKickoutsElement) {
+        const team1LongWinPercentage = team1LongKickouts > 0 ? Math.round((team1LongKickoutsWon / team1LongKickouts) * 100) : 0;
+        team1LongKickoutsElement.textContent = `${team1LongKickoutsWon}/${team1LongKickouts} (${team1LongWinPercentage}%)`;
+    }
+    
+        if (team2LongKickoutsElement) {
+            const team2LongWinPercentage = team2LongKickouts > 0 ? Math.round((team2LongKickoutsWon / team2LongKickouts) * 100) : 0;
+            team2LongKickoutsElement.textContent = `${team2LongKickoutsWon}/${team2LongKickouts} (${team2LongWinPercentage}%)`;
+        }
+    
+    // Calculate and display turnover statistics
+    // Ball Lost (Forced)
+    let team1BallLostForced = 0;
+    let team2BallLostForced = 0;
+    const ballLostForcedModes = {
+        'Lost 50/50': { team1: 0, team2: 0 },
+        'Lost in Contact': { team1: 0, team2: 0 },
+        'Kickpass Intercept': { team1: 0, team2: 0 },
+        'Handpass Intercept': { team1: 0, team2: 0 },
+        'Sideline/Endline': { team1: 0, team2: 0 },
+        'Foul': { team1: 0, team2: 0 },
+        'Other': { team1: 0, team2: 0 }
+    };
+    
+    actionsLog.forEach(entry => {
+        if (entry.action === 'Ball Lost (Forced)') {
+            const teamCode = getTeamFromAction(entry);
+            if (teamCode === 'team1') {
+                team1BallLostForced++;
+                if (entry.mode && ballLostForcedModes[entry.mode]) {
+                    ballLostForcedModes[entry.mode].team1++;
+                }
+            } else if (teamCode === 'team2') {
+                team2BallLostForced++;
+                if (entry.mode && ballLostForcedModes[entry.mode]) {
+                    ballLostForcedModes[entry.mode].team2++;
+                }
+            }
+        }
+    });
+    
+    const team1BallLostForcedElement = document.getElementById('stats-team-1-ball-lost-forced');
+    const team2BallLostForcedElement = document.getElementById('stats-team-2-ball-lost-forced');
+    if (team1BallLostForcedElement) team1BallLostForcedElement.textContent = team1BallLostForced;
+    if (team2BallLostForcedElement) team2BallLostForcedElement.textContent = team2BallLostForced;
+    
+    // Update mode counts for Ball Lost (Forced)
+    const modeMapLostForced = {
+        'Lost 50/50': 'ball-lost-forced-lost-50-50',
+        'Lost in Contact': 'ball-lost-forced-lost-in-contact',
+        'Kickpass Intercept': 'ball-lost-forced-kickpass-intercept',
+        'Handpass Intercept': 'ball-lost-forced-handpass-intercept',
+        'Sideline/Endline': 'ball-lost-forced-sideline-endline',
+        'Foul': 'ball-lost-forced-foul',
+        'Other': 'ball-lost-forced-other'
+    };
+    
+    Object.keys(ballLostForcedModes).forEach(mode => {
+        const idSuffix = modeMapLostForced[mode];
+        const team1Element = document.getElementById(`stats-team-1-${idSuffix}`);
+        const team2Element = document.getElementById(`stats-team-2-${idSuffix}`);
+        if (team1Element) team1Element.textContent = ballLostForcedModes[mode].team1;
+        if (team2Element) team2Element.textContent = ballLostForcedModes[mode].team2;
+    });
+    
+    // Ball Lost (Unforced)
+    let team1BallLostUnforced = 0;
+    let team2BallLostUnforced = 0;
+    const ballLostUnforcedModes = {
+        'Lost 50/50': { team1: 0, team2: 0 },
+        'First Touch': { team1: 0, team2: 0 },
+        'Poor Skills': { team1: 0, team2: 0 },
+        'Kickpass Intercept': { team1: 0, team2: 0 },
+        'Handpass Intercept': { team1: 0, team2: 0 },
+        'Sideline/Endline': { team1: 0, team2: 0 },
+        'Foul/Breach': { team1: 0, team2: 0 },
+        'Other': { team1: 0, team2: 0 }
+    };
+    
+    actionsLog.forEach(entry => {
+        if (entry.action === 'Ball Lost (Unforced)') {
+            const teamCode = getTeamFromAction(entry);
+            if (teamCode === 'team1') {
+                team1BallLostUnforced++;
+                if (entry.mode && ballLostUnforcedModes[entry.mode]) {
+                    ballLostUnforcedModes[entry.mode].team1++;
+                }
+            } else if (teamCode === 'team2') {
+                team2BallLostUnforced++;
+                if (entry.mode && ballLostUnforcedModes[entry.mode]) {
+                    ballLostUnforcedModes[entry.mode].team2++;
+                }
+            }
+        }
+    });
+    
+    const team1BallLostUnforcedElement = document.getElementById('stats-team-1-ball-lost-unforced');
+    const team2BallLostUnforcedElement = document.getElementById('stats-team-2-ball-lost-unforced');
+    if (team1BallLostUnforcedElement) team1BallLostUnforcedElement.textContent = team1BallLostUnforced;
+    if (team2BallLostUnforcedElement) team2BallLostUnforcedElement.textContent = team2BallLostUnforced;
+    
+    // Update mode counts for Ball Lost (Unforced)
+    const modeMapLostUnforced = {
+        'Lost 50/50': 'ball-lost-unforced-lost-50-50',
+        'First Touch': 'ball-lost-unforced-first-touch',
+        'Poor Skills': 'ball-lost-unforced-poor-skills',
+        'Kickpass Intercept': 'ball-lost-unforced-kickpass-intercept',
+        'Handpass Intercept': 'ball-lost-unforced-handpass-intercept',
+        'Sideline/Endline': 'ball-lost-unforced-sideline-endline',
+        'Foul/Breach': 'ball-lost-unforced-foul-breach',
+        'Other': 'ball-lost-unforced-other'
+    };
+    
+    Object.keys(ballLostUnforcedModes).forEach(mode => {
+        const idSuffix = modeMapLostUnforced[mode];
+        const team1Element = document.getElementById(`stats-team-1-${idSuffix}`);
+        const team2Element = document.getElementById(`stats-team-2-${idSuffix}`);
+        if (team1Element) team1Element.textContent = ballLostUnforcedModes[mode].team1;
+        if (team2Element) team2Element.textContent = ballLostUnforcedModes[mode].team2;
+    });
+    
+    // Ball Won (Forced)
+    let team1BallWonForced = 0;
+    let team2BallWonForced = 0;
+    const ballWonForcedModes = {
+        'Won 50/50': { team1: 0, team2: 0 },
+        'Won in Contact': { team1: 0, team2: 0 },
+        'Kickpass Intercept': { team1: 0, team2: 0 },
+        'Handpass Intercept': { team1: 0, team2: 0 },
+        'Sideline/Endline': { team1: 0, team2: 0 },
+        'Foul': { team1: 0, team2: 0 },
+        'Other': { team1: 0, team2: 0 }
+    };
+    
+    actionsLog.forEach(entry => {
+        if (entry.action === 'Ball Won (Forced)') {
+            const teamCode = getTeamFromAction(entry);
+            if (teamCode === 'team1') {
+                team1BallWonForced++;
+                if (entry.mode && ballWonForcedModes[entry.mode]) {
+                    ballWonForcedModes[entry.mode].team1++;
+                }
+            } else if (teamCode === 'team2') {
+                team2BallWonForced++;
+                if (entry.mode && ballWonForcedModes[entry.mode]) {
+                    ballWonForcedModes[entry.mode].team2++;
+                }
+            }
+        }
+    });
+    
+    const team1BallWonForcedElement = document.getElementById('stats-team-1-ball-won-forced');
+    const team2BallWonForcedElement = document.getElementById('stats-team-2-ball-won-forced');
+    if (team1BallWonForcedElement) team1BallWonForcedElement.textContent = team1BallWonForced;
+    if (team2BallWonForcedElement) team2BallWonForcedElement.textContent = team2BallWonForced;
+    
+    // Update mode counts for Ball Won (Forced)
+    const modeMapWonForced = {
+        'Won 50/50': 'ball-won-forced-won-50-50',
+        'Won in Contact': 'ball-won-forced-won-in-contact',
+        'Kickpass Intercept': 'ball-won-forced-kickpass-intercept',
+        'Handpass Intercept': 'ball-won-forced-handpass-intercept',
+        'Sideline/Endline': 'ball-won-forced-sideline-endline',
+        'Foul': 'ball-won-forced-foul',
+        'Other': 'ball-won-forced-other'
+    };
+    
+    Object.keys(ballWonForcedModes).forEach(mode => {
+        const idSuffix = modeMapWonForced[mode];
+        const team1Element = document.getElementById(`stats-team-1-${idSuffix}`);
+        const team2Element = document.getElementById(`stats-team-2-${idSuffix}`);
+        if (team1Element) team1Element.textContent = ballWonForcedModes[mode].team1;
+        if (team2Element) team2Element.textContent = ballWonForcedModes[mode].team2;
+    });
+    
+    // Ball Won (Unforced)
+    let team1BallWonUnforced = 0;
+    let team2BallWonUnforced = 0;
+    const ballWonUnforcedModes = {
+        'Won 50/50': { team1: 0, team2: 0 },
+        'First Touch': { team1: 0, team2: 0 },
+        'Poor Skills': { team1: 0, team2: 0 },
+        'Kickpass Intercept': { team1: 0, team2: 0 },
+        'Handpass Intercept': { team1: 0, team2: 0 },
+        'Sideline/Endline': { team1: 0, team2: 0 },
+        'Foul/Breach': { team1: 0, team2: 0 },
+        'Other': { team1: 0, team2: 0 }
+    };
+    
+    actionsLog.forEach(entry => {
+        if (entry.action === 'Ball Won (Unforced)') {
+            const teamCode = getTeamFromAction(entry);
+            if (teamCode === 'team1') {
+                team1BallWonUnforced++;
+                if (entry.mode && ballWonUnforcedModes[entry.mode]) {
+                    ballWonUnforcedModes[entry.mode].team1++;
+                }
+            } else if (teamCode === 'team2') {
+                team2BallWonUnforced++;
+                if (entry.mode && ballWonUnforcedModes[entry.mode]) {
+                    ballWonUnforcedModes[entry.mode].team2++;
+                }
+            }
+        }
+    });
+    
+    const team1BallWonUnforcedElement = document.getElementById('stats-team-1-ball-won-unforced');
+    const team2BallWonUnforcedElement = document.getElementById('stats-team-2-ball-won-unforced');
+    if (team1BallWonUnforcedElement) team1BallWonUnforcedElement.textContent = team1BallWonUnforced;
+    if (team2BallWonUnforcedElement) team2BallWonUnforcedElement.textContent = team2BallWonUnforced;
+    
+    // Update mode counts for Ball Won (Unforced)
+    const modeMapWonUnforced = {
+        'Won 50/50': 'ball-won-unforced-won-50-50',
+        'First Touch': 'ball-won-unforced-first-touch',
+        'Poor Skills': 'ball-won-unforced-poor-skills',
+        'Kickpass Intercept': 'ball-won-unforced-kickpass-intercept',
+        'Handpass Intercept': 'ball-won-unforced-handpass-intercept',
+        'Sideline/Endline': 'ball-won-unforced-sideline-endline',
+        'Foul/Breach': 'ball-won-unforced-foul-breach',
+        'Other': 'ball-won-unforced-other'
+    };
+    
+    Object.keys(ballWonUnforcedModes).forEach(mode => {
+        const idSuffix = modeMapWonUnforced[mode];
+        const team1Element = document.getElementById(`stats-team-1-${idSuffix}`);
+        const team2Element = document.getElementById(`stats-team-2-${idSuffix}`);
+        if (team1Element) team1Element.textContent = ballWonUnforcedModes[mode].team1;
+        if (team2Element) team2Element.textContent = ballWonUnforcedModes[mode].team2;
+    });
 }
 
 // Toggle stats group visibility
@@ -10250,6 +11292,24 @@ function toggleStatsGroup(groupName) {
             content.classList.add('collapsed');
             header.classList.remove('expanded');
             toggle.textContent = '▶';
+        }
+    }
+}
+
+function toggleStatsSubGroup(subGroupId) {
+    const subGroup = document.getElementById(subGroupId);
+    
+    if (subGroup) {
+        const isCollapsed = subGroup.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            // Expand - remove collapsed class, add expanded class
+            subGroup.classList.remove('collapsed');
+            subGroup.classList.add('expanded');
+        } else {
+            // Collapse - add collapsed class, remove expanded class
+            subGroup.classList.add('collapsed');
+            subGroup.classList.remove('expanded');
         }
     }
 }
@@ -10304,6 +11364,13 @@ function showTemporaryMessage(message, type = 'info') {
     setTimeout(() => {
         messageEl.style.opacity = '0';
         messageEl.style.transform = 'translateX(-50%) translateY(-10px)';
+        
+        // Remove element from DOM after fade-out transition completes (300ms)
+        setTimeout(() => {
+            if (messageEl && messageEl.parentNode) {
+                messageEl.remove();
+            }
+        }, 300);
     }, 4000);
 }
 
