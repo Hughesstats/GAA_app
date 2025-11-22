@@ -109,11 +109,11 @@
         <button class="bottom-nav-btn" data-tab="home" aria-label="Teams" tabindex="0">
             <span class="bottom-nav-label">TEAMS</span>
         </button>
-        <button class="bottom-nav-btn" data-tab="stats" aria-label="Log Match" tabindex="0">
-            <span class="bottom-nav-label">LOG MATCH</span>
-        </button>
         <button class="bottom-nav-btn" data-tab="stats-tab" aria-label="Stats" tabindex="0">
             <span class="bottom-nav-label">STATS</span>
+        </button>
+        <button class="bottom-nav-btn" data-tab="stats" aria-label="Log Match" tabindex="0">
+            <span class="bottom-nav-label">LOG MATCH</span>
         </button>
         <button class="bottom-nav-btn" data-tab="review" aria-label="Pitch" tabindex="0">
             <span class="bottom-nav-label">PITCH</span>
@@ -713,12 +713,10 @@
             <div id="mode-45-entry" class="screen">
                 <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for 45 Entry</h3>
-                <button class="mode-button" onclick="selectMode('Kickpass (Fast)')">Kickpass (Fast)</button>
-                <button class="mode-button" onclick="selectMode('Kickpass (Slow)')">Kickpass (Slow)</button>
-                <button class="mode-button" onclick="selectMode('Handpass (Fast)')">Handpass (Fast)</button>
-                <button class="mode-button" onclick="selectMode('Handpass (Slow)')">Handpass (Slow)</button>
-                <button class="mode-button" onclick="selectMode('Carry (Fast)')">Carry (Fast)</button>
-                <button class="mode-button" onclick="selectMode('Carry (Slow)')">Carry (Slow)</button>
+                <button class="mode-button" onclick="selectMode('Slow Attack')">Slow Attack</button>
+                <button class="mode-button" onclick="selectMode('Fast Attack')">Fast Attack</button>
+                <button class="mode-button" onclick="selectMode('Sustained Pressure')">Sustained Pressure</button>
+                <button class="mode-button" onclick="selectMode('Turnover Won')">Turnover Won</button>
                 <button class="mode-button" onclick="selectMode('Other')">Other</button>
             </div>
 
@@ -775,13 +773,12 @@
             <div id="mode-ball-won" class="screen">
                 <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Ball Won (Forced)</h3>
-                <button class="mode-button" onclick="selectMode('Individual Tackle')">Individual Tackle</button>
-                <button class="mode-button" onclick="selectMode('Group Tackle')">Group Tackle</button>
-                <button class="mode-button" onclick="selectMode('Block Down')">Block Down</button>
+                <button class="mode-button" onclick="selectMode('Won 50/50')">Won 50/50</button>
+                <button class="mode-button" onclick="selectMode('Won in Contact')">Won in Contact</button>
                 <button class="mode-button" onclick="selectMode('Kickpass Intercept')">Kickpass Intercept</button>
                 <button class="mode-button" onclick="selectMode('Handpass Intercept')">Handpass Intercept</button>
                 <button class="mode-button" onclick="selectMode('Sideline/Endline')">Sideline/Endline</button>
-                <button class="mode-button" onclick="selectMode('Won 50/50')">Won 50/50</button>
+                <button class="mode-button" onclick="selectMode('Foul')">Foul</button>
                 <button class="mode-button" onclick="selectMode('Other')">Other</button>
             </div>
 
@@ -789,11 +786,13 @@
             <div id="mode-ball-won-unforced" class="screen">
                 <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Ball Won (Unforced)</h3>
-                <button class="mode-button" onclick="selectMode('Kickpass Intercepted')">Kickpass Intercepted</button>
-                <button class="mode-button" onclick="selectMode('Handpass Intercepted')">Handpass Intercepted</button>
+                <button class="mode-button" onclick="selectMode('Won 50/50')">Won 50/50</button>
                 <button class="mode-button" onclick="selectMode('First Touch')">First Touch</button>
+                <button class="mode-button" onclick="selectMode('Poor Skills')">Poor Skills</button>
+                <button class="mode-button" onclick="selectMode('Kickpass Intercept')">Kickpass Intercept</button>
+                <button class="mode-button" onclick="selectMode('Handpass Intercept')">Handpass Intercept</button>
                 <button class="mode-button" onclick="selectMode('Sideline/Endline')">Sideline/Endline</button>
-                <button class="mode-button" onclick="selectMode('Breach')">Breach</button>
+                <button class="mode-button" onclick="selectMode('Foul/Breach')">Foul/Breach</button>
                 <button class="mode-button" onclick="selectMode('Other')">Other</button>
             </div>
 
@@ -814,24 +813,26 @@
             <div id="mode-ball-lost" class="screen">
                 <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Ball Lost (Forced)</h3>
-                <button class="mode-button" onclick="selectMode('Individual Tackle')">Individual Tackle</button>
-                <button class="mode-button" onclick="selectMode('Group Tackle')">Group Tackle</button>
-                <button class="mode-button" onclick="selectMode('Block Down')">Block Down</button>
+                <button class="mode-button" onclick="selectMode('Lost 50/50')">Lost 50/50</button>
+                <button class="mode-button" onclick="selectMode('Lost in Contact')">Lost in Contact</button>
                 <button class="mode-button" onclick="selectMode('Kickpass Intercept')">Kickpass Intercept</button>
                 <button class="mode-button" onclick="selectMode('Handpass Intercept')">Handpass Intercept</button>
                 <button class="mode-button" onclick="selectMode('Sideline/Endline')">Sideline/Endline</button>
-                <button class="mode-button" onclick="selectMode('Lost 50/50')">Lost 50/50</button>
+                <button class="mode-button" onclick="selectMode('Foul')">Foul</button>
+                <button class="mode-button" onclick="selectMode('Other')">Other</button>
             </div>
 
             <!-- Mode Screen for Ball Lost (Unforced) -->
             <div id="mode-ball-lost-unforced" class="screen">
                 <button class="cancel-button" onclick="cancelCurrentAction()">CANCEL</button>
                 <h3>Screen 1 for Ball Lost (Unforced)</h3>
-                <button class="mode-button" onclick="selectMode('Kickpass Intercepted')">Kickpass Intercepted</button>
-                <button class="mode-button" onclick="selectMode('Handpass Intercepted')">Handpass Intercepted</button>
+                <button class="mode-button" onclick="selectMode('Lost 50/50')">Lost 50/50</button>
                 <button class="mode-button" onclick="selectMode('First Touch')">First Touch</button>
+                <button class="mode-button" onclick="selectMode('Poor Skills')">Poor Skills</button>
+                <button class="mode-button" onclick="selectMode('Kickpass Intercept')">Kickpass Intercept</button>
+                <button class="mode-button" onclick="selectMode('Handpass Intercept')">Handpass Intercept</button>
                 <button class="mode-button" onclick="selectMode('Sideline/Endline')">Sideline/Endline</button>
-                <button class="mode-button" onclick="selectMode('Breach')">Breach</button>
+                <button class="mode-button" onclick="selectMode('Foul/Breach')">Foul/Breach</button>
                 <button class="mode-button" onclick="selectMode('Other')">Other</button>
             </div>
 
@@ -1539,9 +1540,34 @@
                                 </div>
                                 <div class="stats-column">
                                     <h3 class="stat-label">Scores</h3>
+                                    <button class="stats-subgroup-toggle" onclick="toggleStatsSubGroup('scores-subgroup')" aria-label="Toggle sub-group">⋯</button>
                                 </div>
                                 <div class="stats-column">
                                     <span class="stat-value" id="stats-team-2-scores">0 (0 - 0 - 0)</span>
+                                </div>
+                            </div>
+                            <div class="stats-subgroup collapsed" id="scores-subgroup">
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-scores-from-open-play">0 (0 - 0 - 0)</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">From Open Play</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-scores-from-open-play">0 (0 - 0 - 0)</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-scores-from-dead-balls">0 (0 - 0 - 0)</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">From Dead Balls</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-scores-from-dead-balls">0 (0 - 0 - 0)</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="stats-row">
@@ -1592,7 +1618,7 @@
                                     <span class="stat-value" id="stats-team-1-kickouts">0</span>
                                 </div>
                                 <div class="stats-column">
-                                    <h3 class="stat-label">Kickouts</h3>
+                                    <h3 class="stat-label">Total Kickouts</h3>
                                 </div>
                                 <div class="stats-column">
                                     <span class="stat-value" id="stats-team-2-kickouts">0</span>
@@ -1600,35 +1626,464 @@
                             </div>
                             <div class="stats-row">
                                 <div class="stats-column">
-                                    <span class="stat-value" id="stats-team-1-kickouts-won">0/0 (0% Won)</span>
+                                    <span class="stat-value" id="stats-team-1-kickouts-team1-won">0 (0%)</span>
                                 </div>
                                 <div class="stats-column">
-                                    <h3 class="stat-label">Total Won</h3>
+                                    <h3 class="stat-label" id="stats-label-team1-kickouts-won">Team 1 Kickouts Won</h3>
                                 </div>
                                 <div class="stats-column">
-                                    <span class="stat-value" id="stats-team-2-kickouts-won">0/0 (0% Won)</span>
-                                </div>
-                            </div>
-                            <div class="stats-row">
-                                <div class="stats-column">
-                                    <span class="stat-value" id="stats-team-1-uncontested">0/0 (0% Won)</span>
-                                </div>
-                                <div class="stats-column">
-                                    <h3 class="stat-label">Uncontested</h3>
-                                </div>
-                                <div class="stats-column">
-                                    <span class="stat-value" id="stats-team-2-uncontested">0/0 (0% Won)</span>
+                                    <span class="stat-value" id="stats-team-1-kickouts-team2-won">0 (0%)</span>
                                 </div>
                             </div>
                             <div class="stats-row">
                                 <div class="stats-column">
-                                    <span class="stat-value" id="stats-team-1-contested">0/0 (0% Won)</span>
+                                    <span class="stat-value" id="stats-team-2-kickouts-team1-won">0 (0%)</span>
                                 </div>
                                 <div class="stats-column">
-                                    <h3 class="stat-label">Contested</h3>
+                                    <h3 class="stat-label" id="stats-label-team2-kickouts-won">Team 2 Kickouts Won</h3>
                                 </div>
                                 <div class="stats-column">
-                                    <span class="stat-value" id="stats-team-2-contested">0/0 (0% Won)</span>
+                                    <span class="stat-value" id="stats-team-2-kickouts-team2-won">0 (0%)</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-contested-won">0/0 (0%)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Contested Won</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-contested-won">0/0 (0%)</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-uncontested-won">0/0 (0%)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Uncontested Won</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-uncontested-won">0/0 (0%)</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-short-kickouts">0/0 (0%)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Short Kickouts</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-short-kickouts">0/0 (0%)</span>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-long-kickouts">0/0 (0%)</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Long Kickouts</h3>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-long-kickouts">0/0 (0%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Turnovers Group -->
+                    <div class="stats-group">
+                        <div class="stats-group-header" onclick="toggleStatsGroup('turnovers')">
+                            <h3 class="stats-group-title">Turnovers</h3>
+                            <span class="stats-group-toggle" id="turnovers-toggle">▶</span>
+                        </div>
+                        <div class="stats-group-content collapsed" id="turnovers-content">
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-ball-lost-forced">0</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Ball Lost (Forced)</h3>
+                                    <button class="stats-subgroup-toggle" onclick="toggleStatsSubGroup('ball-lost-forced-subgroup')" aria-label="Toggle sub-group">⋯</button>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-ball-lost-forced">0</span>
+                                </div>
+                            </div>
+                            <div class="stats-subgroup collapsed" id="ball-lost-forced-subgroup">
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-forced-lost-50-50">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Lost 50/50</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-forced-lost-50-50">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-forced-lost-in-contact">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Lost in Contact</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-forced-lost-in-contact">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-forced-kickpass-intercept">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Kickpass Intercept</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-forced-kickpass-intercept">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-forced-handpass-intercept">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Handpass Intercept</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-forced-handpass-intercept">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-forced-sideline-endline">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Sideline/Endline</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-forced-sideline-endline">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-forced-foul">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Foul</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-forced-foul">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-forced-other">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Other</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-forced-other">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-ball-lost-unforced">0</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Ball Lost (Unforced)</h3>
+                                    <button class="stats-subgroup-toggle" onclick="toggleStatsSubGroup('ball-lost-unforced-subgroup')" aria-label="Toggle sub-group">⋯</button>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-ball-lost-unforced">0</span>
+                                </div>
+                            </div>
+                            <div class="stats-subgroup collapsed" id="ball-lost-unforced-subgroup">
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-unforced-lost-50-50">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Lost 50/50</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-unforced-lost-50-50">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-unforced-first-touch">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">First Touch</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-unforced-first-touch">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-unforced-poor-skills">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Poor Skills</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-unforced-poor-skills">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-unforced-kickpass-intercept">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Kickpass Intercept</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-unforced-kickpass-intercept">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-unforced-handpass-intercept">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Handpass Intercept</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-unforced-handpass-intercept">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-unforced-sideline-endline">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Sideline/Endline</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-unforced-sideline-endline">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-unforced-foul-breach">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Foul/Breach</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-unforced-foul-breach">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-lost-unforced-other">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Other</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-lost-unforced-other">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-ball-won-forced">0</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Ball Won (Forced)</h3>
+                                    <button class="stats-subgroup-toggle" onclick="toggleStatsSubGroup('ball-won-forced-subgroup')" aria-label="Toggle sub-group">⋯</button>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-ball-won-forced">0</span>
+                                </div>
+                            </div>
+                            <div class="stats-subgroup collapsed" id="ball-won-forced-subgroup">
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-forced-won-50-50">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Won 50/50</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-forced-won-50-50">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-forced-won-in-contact">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Won in Contact</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-forced-won-in-contact">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-forced-kickpass-intercept">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Kickpass Intercept</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-forced-kickpass-intercept">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-forced-handpass-intercept">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Handpass Intercept</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-forced-handpass-intercept">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-forced-sideline-endline">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Sideline/Endline</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-forced-sideline-endline">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-forced-foul">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Foul</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-forced-foul">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-forced-other">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Other</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-forced-other">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-1-ball-won-unforced">0</span>
+                                </div>
+                                <div class="stats-column">
+                                    <h3 class="stat-label">Ball Won (Unforced)</h3>
+                                    <button class="stats-subgroup-toggle" onclick="toggleStatsSubGroup('ball-won-unforced-subgroup')" aria-label="Toggle sub-group">⋯</button>
+                                </div>
+                                <div class="stats-column">
+                                    <span class="stat-value" id="stats-team-2-ball-won-unforced">0</span>
+                                </div>
+                            </div>
+                            <div class="stats-subgroup collapsed" id="ball-won-unforced-subgroup">
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-unforced-won-50-50">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Won 50/50</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-unforced-won-50-50">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-unforced-first-touch">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">First Touch</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-unforced-first-touch">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-unforced-poor-skills">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Poor Skills</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-unforced-poor-skills">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-unforced-kickpass-intercept">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Kickpass Intercept</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-unforced-kickpass-intercept">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-unforced-handpass-intercept">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Handpass Intercept</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-unforced-handpass-intercept">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-unforced-sideline-endline">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Sideline/Endline</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-unforced-sideline-endline">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-unforced-foul-breach">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Foul/Breach</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-unforced-foul-breach">0</span>
+                                    </div>
+                                </div>
+                                <div class="stats-row stats-subgroup-row">
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-1-ball-won-unforced-other">0</span>
+                                    </div>
+                                    <div class="stats-column">
+                                        <h3 class="stat-label stats-subgroup-label">Other</h3>
+                                    </div>
+                                    <div class="stats-column">
+                                        <span class="stat-value stats-subgroup-value" id="stats-team-2-ball-won-unforced-other">0</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
